@@ -113,7 +113,7 @@ for (i in 1:2) {
     )
     # make ylim big enough to contain all data points and lines
     ylim <- c(0, max(combined.burdens$genome.burden, maxpred, na.rm=TRUE))
-    plot(combined.burdens$plotage,
+    plot(combined.burdens$age,
         combined.burdens$genome.burden,
         col=combined.burdens$color, pch=ifelse(combined.burdens$outlier == 'NORMAL', 17, 4),
         ylim=ylim, ylab='Autosomal mutation burden', xlab='Age')
