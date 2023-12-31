@@ -48,11 +48,7 @@ rule download_specific_scan2_version:
         scan2_scripts=directory("scan2/SCAN2_specific_commit/scripts")
     log:
     params:
-        commit_id="b8858c1eb4cea9a7bc8d2d004f7a6c97ef473140"
-        # Real commit used is below. This contains one update to a script that
-        # summarizes tables at the very end of the SCAN2 pipeline, so it isn't
-        # worth rerunning all of SCAN2 to update this param.
-        #commit_id="79ec476ce86422ea502373c0ab7b6c5ea2e0ed46"
+        commit_id="401949b5758c40443535a6d8b08f5b7abf165565"
     localrule: True
     threads: 1
     resources:
@@ -192,8 +188,7 @@ rule scan2_cross_sample_panel:
         {input.scan2_bin} -d scan2/panel/makepanel --snakefile {input.scan2_snakefile} \
             makepanel \
                 --joblimit 1000 \
-                --drmaa ' -p park -A park_contrib -c {{threads}} --mem={{resources.mem_mb}} -t 40:00:00 -o %logdir/slurm-%A.log' \
-                --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 2'
+                --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=5760' \
         """
 
 
@@ -254,7 +249,8 @@ rule scan2_call_mutations:
         scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
         yaml="scan2/{donor}/scan2/scan.yaml"
     output:
-        dpmatrix=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz")
+        dpmatrix=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz"),
+        dpmatrixidx=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz.tbi")
     params:
         scan2_output_dir="scan2/{donor}/scan2",
     log:
@@ -264,14 +260,13 @@ rule scan2_call_mutations:
         mem_mb=4000
     shell:
         # Very intentionally not putting --drmaa or --snakemake-args as Snakemake params.
-        # Changing these do not change results, but Snakemake may want to rerun jobs
-        # if the params ever did change.
+        # Changing these do not change results, but Snakemake will rerun jobs
+        # if the params change.
         """
         {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
             run \
                 --joblimit 800 \
-                --drmaa ' -p park -A park_contrib -c {{threads}} --mem={{resources.mem_mb}} -t 24:00:00 -o %logdir/slurm-%A.log' \
-                --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 2'
+                --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=2880' \
         """
 
 
@@ -332,7 +327,8 @@ rule scan2_rescue_run:
         scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
         scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
         scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        scan2_objects=lambda wildcards: rescue_group_to_scan2_objects(wildcards.rescue_group).keys(),
+        #scan2_objects=lambda wildcards: config['rescue_group_to_scan2_objects'][wildcards.rescue_group].keys(),
+        scan2_objects=lambda wildcards: config['scan2_rescue_groups'][wildcards.rescue_group].keys(),
         yaml="scan2/rescue_{rescue_group}/scan.yaml"
     output:
         "scan2/rescue_{rescue_group}/rescued_muts.txt",
@@ -531,8 +527,7 @@ rule scan2_permtool_run:
         """
         {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} permtool \
             --joblimit 500 \
-            --drmaa ' -p park -A park_contrib -c {{threads}} --mem={{resources.mem_mb}} -t 40:00:00 -o %logdir/slurm-%A.log' \
-            --snakemake-args ' --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 2'
+            --snakemake-args ' --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=2880' \
         """
 
 
