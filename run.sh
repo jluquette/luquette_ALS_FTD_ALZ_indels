@@ -7,8 +7,12 @@
 word=$1
 shift
 
-# Always require slurm-drmaa. The SCAN2 commands implicitly require it.
-module load slurm-drmaa
+# For the "cluster" subcommand: use these SLURM variables to submit to the
+# cluster. Change these to match your system. If you do not use SLURM, you
+# will need to modify the `snakemake`
+slurm_partition=priopark
+slurm_account=park_contrib
+slurm_runtime=2880            # time in minutes
 
 # Ensure sentieon is set up
 which sentieon
@@ -26,8 +30,7 @@ flags='-s=snakemake/Snakefile --dir=. --latency-wait=60 --resources localjob=1 r
         #--restart-times 2 \  # This is NECESSARY for some jobs that have step-up memory reqs
 jobflag='-j=10'
 kgflag=''
-drmaaflag=''
-usedrmaa='false'
+usecluster='false'
 
 if [ "x$word" == 'xdry' ]; then
     flags="$flags $@ --dryrun --quiet"
@@ -46,10 +49,7 @@ elif [ "x$word" == 'xlocal' ]; then
     jobflag='-j=6' #20'
     kgflag='--keep-going'
 elif [ "x$word" == "xcluster" ]; then
-    #echo "be sure to run: module load slurm-drmaa"
-
-    mkdir -p cluster-logs
-    usedrmaa='true'
+    usecluster='true'
     jobflag='-j=1000'
     kgflag='--keep-going'
     flags="$flags $@ --max-status-checks-per-second=0.5" # --restart-times=2"  # this is handled earlier
@@ -60,11 +60,11 @@ else
 fi
 
 
-# I can't get $drmaaflags to substitute properly because of the internal 's
-if [ $usedrmaa == "true" ]; then
-    snakemake $flags $kgflag \
-        $jobflag \
-        --slurm --default-resources slurm_account=park_contrib slurm_partition=priopark runtime=2880
+# Some old issues with parsing arguments for DRMAA. Might not be necessary
+# to do this if/else anymore.
+if [ $usecluster == "true" ]; then
+    snakemake $flags $kgflag $jobflag \
+        --slurm --default-resources slurm_account=$slurm_account slurm_partition=$slurm_partition runtime=$slurm_runtime
         #--drmaa=' -p priopark -A park_contrib --mem={resources.mem_mb} -c {threads} -t 4:00:00 -o cluster-logs/slurm-%A.log'
         #--max-threads=12 $jobflag \
 else
