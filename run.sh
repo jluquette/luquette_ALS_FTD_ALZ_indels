@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -p priopark
 #SBATCH -A park_contrib
-#SBATCH -t 120:00:00
-#SBATCH --mem=32G
+#SBATCH -t 240:00:00
+#SBATCH --mem=12G
 
 word=$1
 shift
