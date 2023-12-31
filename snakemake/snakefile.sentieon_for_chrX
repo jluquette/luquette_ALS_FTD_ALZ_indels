@@ -10,12 +10,11 @@ bams_by_donor = dict(zip(bams.keys(),
 #print(bams_by_donor)
 
 gatk_regions = []
-with open('metadata/chrX_noPARs_gatk_regions_153windows_1000000.txt') as rf:
+with open('resources/chrX_noPARs_gatk_regions_153windows_1000000.txt') as rf:
     line_no = 0
     for line in rf:
         chr, begin, end = line.strip().split('\t')
         gatk_regions.append(str(chr) + ":" + str(int(begin)+1) + '-' + str(end))
-#print(gatk_regions)
     
 
 # Adapted from SCAN2's snakemake/snakefile.sentieon_joint
@@ -27,7 +26,7 @@ rule sentieon_gatk_scatter:
     input:
         ref='resources/human_g1k_v37_decoy.fasta',
         dbsnp='resources/dbsnp_147_b37_common_all_20160601.vcf',
-        regionfile='metadata/chrX_noPARs_gatk_regions_153windows_1000000.txt',
+        regionfile='resources/chrX_noPARs_gatk_regions_153windows_1000000.txt',
         bams=lambda wildcards: bams_by_donor[wildcards.donor],
         bais=lambda wildcards: [ b.replace(".bam", '.bai') for b in bams_by_donor[wildcards.donor] ]
     output:
