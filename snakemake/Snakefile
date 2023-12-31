@@ -9,37 +9,106 @@ import yaml
 import pandas as pd
 
 
-# Exhaustive list of interesting comparisons for PTA, MDA, batch and pass vs. rescue
-'''
-config['all_comparisons'] = [
-     'pta_neuron___A_vs_pta_oligo___A',
-     'pta_neuron___AB_vs_pta_oligo___AB',
-     'pta_neuron___A_vs_pta_oligo_batch1___A', 'pta_neuron___A_vs_pta_oligo_batch2___A',
-     'pta_neuron___AB_vs_pta_oligo_batch1___AB', 'pta_neuron___AB_vs_pta_oligo_batch2___AB',
-     'pta_oligo_batch1___A_vs_pta_oligo_batch2___A',
-     'pta_oligo_batch1___AB_vs_pta_oligo_batch2___AB',
-     'pta_oligo_A_vs_mda_sox10_infant___A', 'pta_oligo_A_vs_mda_sox10_elderly___A',
-     'mda_sox10_infant___A_vs_mda_sox10_elderly___A',
-     'mda_gfap_infant___A_vs_mda_gfap_elderly___A',
-     'mda_sox10_elderly___A_vs_mda_gfap_elderly___A',
-     'pta_oligo___A_vs_mda_gfap_infant___A', 'pta_oligo___A_vs_mda_gfap_elderly___A' ]
-'''
-'''
-# What is going on here? Why are these doubled up?
-config['all_comparisons'] = [
-     'pta_neuron_vs_pta_oligo',
-     'pta_neuron_vs_pta_oligo',
-     'pta_neuron_vs_pta_oligo_batch1', 'pta_neuron_vs_pta_oligo_batch2',
-     'pta_neuron_vs_pta_oligo_batch1', 'pta_neuron_vs_pta_oligo_batch2',
-     'pta_oligo_batch1_vs_pta_oligo_batch2',
-     'pta_oligo_batch1_vs_pta_oligo_batch2',
-     'pta_oligo_vs_mda_sox10_infant', 'pta_oligo_vs_mda_sox10_elderly',
-     'mda_sox10_infant_vs_mda_sox10_elderly',
-     'mda_gfap_infant_vs_mda_gfap_elderly',
-     'mda_sox10_elderly_vs_mda_gfap_elderly',
-     'pta_oligo_vs_mda_gfap_infant', 'pta_oligo_vs_mda_gfap_elderly' ]
-'''
+# Important note on the `config' dictionary: consolidate all global variables so
+# they can be robustly passed to module calls.
+config['metadata'] = pd.read_csv('metadata/immutable_metadata.csv')
+meta = config['metadata']  # Just for convenience within this Snakefile
 
+# Autosomes only
+config['chrs_to_analyze'] = [ str(x) for x in range(1, 23) ]
+
+# List of BAMs and bulk vs. single cell status. There is only one added
+# bit of data in this file that is not available from config['metadata']:
+# how to deal with multiple bulk BAMs in a single donor. In this case,
+# the first listed bulk BAM in bams.yaml is treated as the matched bulk
+# and the other BAM is simply included in GATK runs for downstream
+# analysis. This file allows the user to modify this as desired in a
+# slightly more straightforward way, though this ordering could also be
+# assumed for immutable_metadata.csv as well.
+with open('metadata/bams.yaml') as yf:
+    bams = yaml.load(yf, Loader=yaml.FullLoader)
+config['bams'] = bams
+
+# Multiple parsings of the `bams.yaml` list to create many necessary mappings
+# ----------------------------------------------------------------------------
+
+# `bams` is a dict mapping donor ID -> list(single cell bams, bulk bams, other bams), where
+# each of the elements in the above list are also dicts mapping sample ID -> bam path.
+# For convenience, flatten `bams` into just a list of file paths with no related metadata.
+config['all_samples'] = sum([ list(bams[k][bt].keys()) for k in bams.keys() for bt in bams[k].keys()  ], [])
+
+# Just single cell samples
+config['all_single_cells'] = sum([ list(bams[k]['single_cell'].keys()) for k in bams.keys() ], [])
+
+# Same as above, but instead of a flat list of sample names, flat list of BAM paths
+config['all_bams'] = sum([ list(bams[k][bt].values()) for k in bams.keys() for bt in bams[k].keys()  ], [])
+
+config['all_donors'] = list(bams.keys())
+
+config['sample_to_donor_map'] = dict((sample, donor) for donor in bams.keys() \
+    for sample in list(bams[donor]['single_cell'].keys()) + list(bams[donor]['bulk'].keys()) )
+
+config['scan2_depth_matrices'] = dict((donor, "scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz") for donor in config['all_donors'])
+
+# XXX: update me when new group mechanism is finished
+config['generic_groups'] = []
+config['synthetic_groups'] = []
+#
+# Run mutation signature-based rescue on the following cell groups.
+# Note SCAN2 signature rescue is NOT DESIGNED for MDA amplified single cells.  However,
+# to simplify data wrangling (i.e., generate files with uniform formats), one can apply
+# SCAN2 rescue to MDA cells and then ignore the rescued calls (e.g., by ignoring any call
+# with pass=F and rescue=T or only using "A" mutation sets (not "AB" mutation sets).
+#
+# BY DEFAULT, assign all cells to a single placeholder group. this allows
+# pre-rescue steps like makepanel and call_mutations to run before the user
+# finalizes the set of groups.
+config['scan2_rescue_groups'] = {
+    'placeholder_changeme' : dict(
+        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/sensitivity/' + s + '/scan2_object.rda', s) for s in config['all_single_cells'] ]
+    )
+}
+config['scan2_rescue_groups_reverse'] = \
+    dict((sample, g) for g in config['scan2_rescue_groups'].keys() for sample in config['scan2_rescue_groups'][g].values())
+
+config['mutsig_groups_for_de_novo'] = dict()
+config['mutsig_groups_for_signature_inclusion'] = []
+config['aging_groups_to_model'] = dict()
+config['cosmic_vs_age_group'] = dict()
+config['comparison_groups'] = []
+config['group_colors'] = dict()
+config['sensitivity_groups'] = []
+config['all_groups'] = []
+
+snv_qualtypes = [ 'A', 'AB' ]
+indel_qualtypes = [ 'indel_A', 'indel_AB' ]
+all_qualtypes = snv_qualtypes + indel_qualtypes
+
+# The type of SCAN2 calls to use for each amplification type. E.g., for PTA
+# single cells, "snv" outputs refer to VAF-based + rescued calls. For MDA, only
+# VAF-based calls are used. Note that many outputs do not use this translation
+# (e.g., the output will be X___AB to refer to SNV VAF+rescue calls or X___A to
+# refer only to VAF-based calls.
+config['muttype_to_passtype'] = {
+    'pta': {
+        'snv': 'AB',
+        'indel': 'indel_AB'
+    },
+    'mda': {
+        'snv': 'A',
+        'indel': 'indel_A'
+    }
+}
+
+
+
+# -----------------------------------------------------------------------------------------
+# Below are many config variables and additions to metadata used to create groups. Groups
+# only become necessary at the SCAN2 rescue stage and later. Better ways to create groups
+# more easily should be explored.
+# -----------------------------------------------------------------------------------------
+#
+"""
 config['all_comparisons'] = [
      'pta_neuron_vs_pta_oligo',
      'pta_neuron_vs_pta_oligo_batch1', 'pta_neuron_vs_pta_oligo_batch2',
@@ -63,14 +132,6 @@ config['rescue_group_comparisons'] = [
 #config['comparison_groups'] = [ 'pta_neuron', 'pta_oligo', 'pta_oligo_batch1', 'pta_oligo_batch2', 'mda_sox10_infant', 'mda_sox10_elderly', 'mda_gfap_infant', 'mda_gfap_elderly' ]
 config['comparison_groups'] = [ 'pta_neuron_half1', 'pta_neuron_half2', 'pta_neuron', 'pta_oligo_half1', 'pta_oligo_half2', 'pta_oligo', 'pta_oligo_batch1', 'mda_sox10_elderly', 'mda_gfap_elderly' ]
 
-
-# Autosomes only
-config['chrs_to_analyze'] = [ str(x) for x in range(1, 23) ]
-
-# Important note on the `config' dictionary: consolidate all global variables so
-# they can be robustly passed to module calls.
-config['metadata'] = pd.read_csv('metadata/sample_metadata.csv')
-meta = config['metadata']  # Just for convenience within this Snakefile
 
 ageclasses = set(meta['ageclass'])
 
@@ -102,44 +163,7 @@ for sample_name in neuron_half1 + oligo_half1:
 for sample_name in neuron_half2 + oligo_half2:
     meta.loc[meta['sample'] == sample_name, 'half'] = 2
 
-with open('metadata/bams.yaml') as yf:
-    bams = yaml.load(yf, Loader=yaml.FullLoader)
-config['bams'] = bams
-
-# `bams` is a dict mapping donor ID -> list(single cell bams, bulk bams, other bams), where
-# each of the elements in the above list are also dicts mapping sample ID -> bam path.
-# For convenience, flatten `bams` into just a list of file paths with no related metadata.
-config['all_samples'] = sum([ list(bams[k][bt].keys()) for k in bams.keys() for bt in bams[k].keys()  ], [])
-
-# Just single cell samples
-config['all_single_cells'] = sum([ list(bams[k]['single_cell'].keys()) for k in bams.keys() ], [])
-
-# Same as above, but instead of a flat list of sample names, flat list of BAM paths
-config['all_bams'] = sum([ list(bams[k][bt].values()) for k in bams.keys() for bt in bams[k].keys()  ], [])
-
-config['all_donors'] = list(bams.keys())
-
-config['sample_to_donor_map'] = dict((sample, donor) for donor in bams.keys() \
-    for sample in list(bams[donor]['single_cell'].keys()) + list(bams[donor]['bulk'].keys()) )
-
-config['scan2_depth_matrices'] = dict((donor, "scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz") for donor in config['all_donors'])
-
-config['muttype_to_passtype'] = {
-    'pta': {
-        'snv': 'AB',
-        'indel': 'indel_AB'
-    },
-    'mda': {
-        'snv': 'A',
-        'indel': 'indel_A'
-    }
-}
-
-# Read in the input manifest
-#manifest = pd.read_csv('manifests/INPUT_MANIFEST', sep='\t',comment='#')
-#qualtypes = set(manifest['qualtype'])
-
-# Coarse high-level groups that are constantly reused.
+# Coarse high-level groups that are frequently reused.
 generic_groups = [ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap', 'pta_oligo_batch1', 'pta_oligo_batch2' ]
 
 
@@ -223,26 +247,6 @@ config['all_pta_cells'] = list(group_from_meta('pta_neuron')['sample']) + list(g
 config['group_colors'] = dict([ (g, group_from_meta(g, return_color=True)) for g in all_groups ])
 
 
-# Run mutation signature-based rescue on cells grouped as follows:
-#    1. All PTA-amplified neurons (nearly identical to Luquette et al 2022, except more neurons now).
-#    2. All PTA-amplified SOX10-sorted oligodendrocytes
-#    3. All MDA-amplified SOX10-sorted oligodendrocytes
-#    4. All MDA-amplified GFAP-sorted oligodendrocytes.
-# Note SCAN2 signature rescue is NOT DESIGNED for MDA amplified single cells.  After
-# doing steps (3) and (4) above, the rescued calls are ignored.  They are run through
-# the rescue pipeline just for the sake of uniform outputs.
-scan2_rescue_groups = [ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap' ]
-
-def rescue_group_to_scan2_objects(rescue_group):
-    subset = group_from_meta(rescue_group)
-    return(dict(zip(
-            list('scan2/' + subset['donor'] + '/scan2/sensitivity/' + subset['sample'] + '/scan2_object.rda'),
-            list(subset['sample'])
-        )))
-
-config['scan2_rescue_groups'] = dict((g, rescue_group_to_scan2_objects(g)) for g in scan2_rescue_groups)
-config['scan2_rescue_groups_reverse'] = \
-    dict((sample, g) for g in scan2_rescue_groups for sample in rescue_group_to_scan2_objects(g).values())
 
 synthetic_groups = \
     [ 'pta_neuron_half1', 'pta_neuron_half2', 'pta_oligo_half1', 'pta_oligo_half2' ] +  \
@@ -277,11 +281,8 @@ config['mutsig_groups_for_signature_inclusion'] = [ 'pta_neuron', 'pta_oligo' ]
 
 config['cosmic_vs_age_group'] = config['aging_groups_to_model']
 
+"""
 
-
-snv_qualtypes = [ 'A', 'AB' ]
-indel_qualtypes = [ 'indel_A', 'indel_AB' ]
-all_qualtypes = snv_qualtypes + indel_qualtypes
 
 # Allow script to run (and presumably create this file) by specifying
 # --config make_pcawg_metadata=1 --until metadata/pcawg_metadata.csv
@@ -297,11 +298,6 @@ if 'make_pcawg_metadata' not in config.keys():
     config['pcawg_tumors'] = sorted(set(pcawg_metadata['tumor']))
 
 
-# Constant config variables for the enrichment pipeline
-binsizes = [ '1000' ]
-qsizes = [ 3, 5, 10 ] #, 50 ]
-qsizes_to_compute = [ 10 ] #, 50 ]
-
 
 # Enrichment analyses are keyed by {group_name}___{qualtype}, i.e., pta_neuron___indel_A.
 # These keys need to be mapped to mutation tables (i.e., actual SCAN2 calls), permutation
@@ -310,7 +306,7 @@ qsizes_to_compute = [ 10 ] #, 50 ]
 mutclass_to_mutfile = {}
 mutclass_to_permfile = {}
 mutclass_to_cosmic = {}
-for group_name in generic_groups + synthetic_groups:
+for group_name in config['generic_groups'] + config['synthetic_groups']:
     for qualtype in all_qualtypes:
         analysis_key = group_name + "___" + qualtype
 
@@ -331,7 +327,6 @@ for group_name in generic_groups + synthetic_groups:
         mutclass_to_cosmic[analysis_key]['sigprofilerextractor'] = "mutsigs/sigprofilerextractor/cosmic_reduced___" + cosmic_qualtype + ".csv"
 
 
-
 # The output directory and signal files are the only parameters that should
 # change between analyses.
 #
@@ -344,8 +339,7 @@ for group_name in generic_groups + synthetic_groups:
 # SNV density), make a different dictionary.  This is the default setup.
 config['enrichment_config'] = {
     'qbed_from_bigwig_script': 'snakemake/scripts/make_qbed_from_bigwig.sh',
-    'quantiles': qsizes,
-    # must match binsizes.
+    'quantiles': [ '3', '5', '10' ],
     'tiles': {
         '1000':    'alignability/genome_tiles/genome_tiles_1000binsize.bed'
     },
@@ -366,8 +360,7 @@ config['enrichment_config'] = {
 # little work).
 config['cancer_enrichment_config'] = {
     'qbed_from_bigwig_script': 'snakemake/scripts/make_qbed_from_bigwig.sh',
-    'quantiles': [ '3', '10' ], #, '50' ],
-    # must match binsizes.
+    'quantiles': [ '3', '10' ],
     'tiles': {
         '1000':    'alignability/genome_tiles/genome_tiles_1000binsize.bed',
         '1000000':    'alignability/genome_tiles/genome_tiles_1000000binsize.bed'
@@ -436,7 +429,7 @@ with open('manifests/BEDS_FOR_SENSITIVITY_ANALYSIS.MANIFEST', 'r') as f:
     for line in f:
         config['region_beds_for_sensitivity'].append(line.strip())
 
-
+print('allowed rescue_groups:' + '|'.join(config['scan2_rescue_groups'].keys()))
 wildcard_constraints:
     # snakemake seems not to match empty strings for a wildcard
     underscore='|_',           # allow either empty string or an underscore
@@ -445,25 +438,10 @@ wildcard_constraints:
     datasource='|'.join(quantile_datasources + bed_region_datasources),
     sigtype='quantile|bed_regions',
     analysistype='bedenrich|qbedenrich|sigenrich_sigprofilerextractor|sigenrich_ad_hoc_signature_selection',
-    ageclass='|'.join(ageclasses),
     mdatype='mda_gfap|mda_sox10',
     nmf_spectype='ID|SBS',
     sigprofiler_spectype='SBS96|SBS384|ID83',
-    de_novo_group='|'.join(config['mutsig_groups_for_de_novo'].keys()),
     filter='FILTERED|UNFILTERED',
-    generic_group='|'.join(generic_groups),
-    rescue_group='|'.join(scan2_rescue_groups),
-    synthetic_group='|'.join(synthetic_groups),
-    # same as above, but allows for {synthetic_group1}_vs_{synthetic_group2} style outputs
-    synthetic_group1='|'.join(synthetic_groups),  
-    synthetic_group2='|'.join(synthetic_groups),
-    any_group='|'.join(config['all_groups']),
-    # same as above
-    any_group1='|'.join(config['all_groups']),
-    any_group2='|'.join(config['all_groups']),
-    rescue_or_synthetic_group='|'.join(scan2_rescue_groups + synthetic_groups),
-    mutsig_group='|'.join(generic_groups),
-    cosmic_vs_age_group='|'.join(config['cosmic_vs_age_group'].keys()),
     binsize='|'.join([ '200', '1000', '1000000' ]),
     qualtype='|'.join(all_qualtypes),
     cosmic='cosmic_full|cosmic_reduced',
@@ -471,16 +449,23 @@ wildcard_constraints:
     mutsig_selection_method='ad_hoc_signature_selection|sigprofilerextractor',
     muttype='snv|indel',
     donor='|'.join(config['all_donors']),
-    tumor='|'.join(config['pcawg_tumors'])  # Not necessary, but helps to catch errors
-    #tumor='[^\.]+',  # No longer need this -[^\.]'   # Tumor codes are formatted XXXX-YYYY 
-    #mutclass='|'.join(expand("{celltype}{sigclass}___{qualtype}",
-        #celltype=celltypes, sigclass=[ '', '_sbs1', '_sbs16', '_sbs32' ], qualtype=qualtypes)),
-    #chr='|'.join([ str(i) for i in range(1,23) ]),
-    #panel_letter='a|b|c|d|e|f|g|h|i|j|k|l',
-    #sig='sbs1|sbs16|sbs32',  # for "simplified" analysis of sbs1 and sbs16 enrichment using CG:C>T and ATN:T>C rather than signature fitting
-    #half='|_half1|_half2',
-    #umap='atac|rna',
-
+    tumor='|'.join(config['pcawg_tumors']),
+    de_novo_group='|'.join(config['mutsig_groups_for_de_novo'].keys()),
+    generic_group='|'.join(config['generic_groups']),
+    rescue_group='|'.join(config['scan2_rescue_groups'].keys()),
+    synthetic_group='|'.join(config['synthetic_groups']),
+    # same as above, but allows for {synthetic_group1}_vs_{synthetic_group2} style outputs
+    synthetic_group1='|'.join(config['synthetic_groups']),  
+    synthetic_group2='|'.join(config['synthetic_groups']),
+    any_group='|'.join(config['all_groups']),
+    # same as above
+    any_group1='|'.join(config['all_groups']),
+    any_group2='|'.join(config['all_groups']),
+    rescue_or_synthetic_group='|'.join(list(config['scan2_rescue_groups'].keys()) + config['synthetic_groups']),
+    mutsig_group='|'.join(config['generic_groups']),
+    cosmic_vs_age_group='|'.join(config['cosmic_vs_age_group'].keys())
+    # seems unnecessary, will see
+    #ageclass='|'.join(config['ageclasses']),
 
 rule scan2_panel_setup:
     input:
@@ -509,20 +494,22 @@ rule scan2_call:
 rule scan2_rescue:
     input:
         expand('scan2/rescue_{rescue_group}/rescued_muts.txt',
-            rescue_group=scan2_rescue_groups),
+            # XXX: CHECKME: not sure if using .keys() here is correct. previously used
+            # global variable scan2_rescue_groups rather than keying into config[]
+            rescue_group=config['scan2_rescue_groups'].keys()),
         expand('scan2/rescue_{rescue_group}/sig_homogeneity_tests.txt',
-            rescue_group=scan2_rescue_groups)
+            rescue_group=config['scan2_rescue_groups'].keys())
 
 rule scan2_digest:
     input:
         expand('scan2/{rescue_group}_mutations.{filter_status}.txt',
-            rescue_group=scan2_rescue_groups,
+            rescue_group=config['scan2_rescue_groups'].keys(),
             filter_status=[ 'FILTERED', 'UNFILTERED' ])
 
 rule scan2_permtool:
     input:
         expand('scan2/permtool/{rescue_group}/perms_{muttype}_{passtype}.rda',
-            rescue_group=scan2_rescue_groups,
+            rescue_group=config['scan2_rescue_groups'].keys(),
             muttype=[ 'snv', 'indel' ],
             passtype=[ 'pass', 'rescue' ])
 
@@ -599,13 +586,13 @@ rule aging_rates:
 rule mutsigs:
     input:
         expand("mutsigs/raw_spectra/{group}___raw_spectrum___{qualtype}.{output}",
-            group=generic_groups,
+            group=config['generic_groups'],
             qualtype=[ 'A', 'indel_A' ],
             output=[ 'pdf', 'svg', 'csv' ]),
         expand("mutsigs/ad_hoc_signature_selection/cosmic_signature_inclusion/all___signature_selection___{qualtype}.csv",
             qualtype=[ 'A', 'indel_A' ]),
         expand("mutsigs/ad_hoc_signature_selection/cosmic_aging/{group}___barplots___{qualtype}.{output}",
-            group=generic_groups,
+            group=config['generic_groups'],
             qualtype=[ 'A', 'indel_A' ],
             output=[ 'pdf', 'svg' ]),
         expand("mutsigs/ad_hoc_signature_selection/cosmic_aging/{group}___cosmic_models_vs_age___{qualtype}.{output}",
@@ -665,14 +652,14 @@ rule enrichment:
     input:
         # All quantile-based regions
         expand('enrichment/{datasource}/quantile/{group}___{qualtype}.{nquantiles}quantiles.{output}',
-            group=generic_groups + synthetic_groups,
+            group=config['generic_groups'] + config['synthetic_groups'],
             qualtype=all_qualtypes,
-            nquantiles=qsizes_to_compute,
+            nquantiles=[ 10 ],
             datasource=quantile_datasources,
             output=[ 'svg', 'pdf', 'csv' ]),
         # All regions directly specified by BED files
         expand('enrichment/{datasource}/bed_regions/{group}___{qualtype}.{output}',
-            group=generic_groups + synthetic_groups,
+            group=config['generic_groups'] + config['synthetic_groups'],
             qualtype=all_qualtypes,
             datasource=bed_region_datasources,
             output=[ 'svg', 'pdf', 'csv' ])
@@ -687,11 +674,9 @@ rule quantile_enrichment_sensitivity:
 rule bed_enrichment_sensitivity:
     input:
         expand('enrichment/sensitivity/bed_regions/{sample}_sensitivity.{file}.txt',
-            #sample=config['all_pta_cells'],
             sample=config['all_single_cells'],   # try adding MDA as well
             file=[ 'full', 'summary' ]),
         expand('enrichment/sensitivity/bed_regions/{sample}_depth.{file}.txt',
-            #sample=config['all_pta_cells'],
             sample=config['all_single_cells'],   # try adding MDA as well
             file=[ 'full', 'summary' ])
 
@@ -700,14 +685,15 @@ rule mb_tile_sensitivity:
         expand('enrichment/sensitivity/tiles_1000000binsize/{sample}.csv',
             sample=config['all_single_cells']),
         expand('enrichment/sensitivity/tiles_1000000binsize/{group}.summary.txt',
-            group=[ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap' ])
+            group=config['sensitivity_groups'])
+            #group=[ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap' ])
 
 
 rule summarized_sensitivity:
     input:
         expand('enrichment/sensitivity/{group}.summary.txt',
-            group=[ 'pta_neuron', 'pta_oligo',
-                    'mda_sox10', 'mda_gfap']),
+            group=config['sensitivity_groups']),
+            #group=[ 'pta_neuron', 'pta_oligo', #'mda_sox10', 'mda_gfap']),
                     #'mda_sox10_elderly', 'mda_gfap_elderly' ])  # XXX: enable later
         "suppfig3_corrected/quantile_sensitivity_panels.pdf"
         
@@ -726,7 +712,7 @@ rule correct_enrichment_analyses:
                 qualtype=[ 'A', 'indel_A', 'AB', 'indel_AB' ]),
         expand('enrichment/{datasource}/quantile/{group}___{qualtype}.{nquantiles}quantiles_sigenrich_{mutsig_selection_method}.corrected.{output}',
             datasource=quantile_datasources,
-            group=generic_groups + synthetic_groups,
+            group=config['generic_groups'] + config['synthetic_groups'],
             qualtype=[ 'A', 'indel_A' ],
             nquantiles=[ 3 ],
             mutsig_selection_method=[ 'ad_hoc_signature_selection', 'sigprofilerextractor' ],
@@ -746,7 +732,7 @@ rule signature_enrichment:
     input:
         expand('enrichment/{datasource}/quantile/{group}___{qualtype}.{nquantiles}quantiles_sigenrich_{mutsig_selection_method}.{output}',
             datasource=quantile_datasources,
-            group=generic_groups + synthetic_groups,
+            group=config['generic_groups'] + config['synthetic_groups'],
             qualtype=[ 'A', 'indel_A' ],
             nquantiles=[ 3 ],
             mutsig_selection_method=[ 'ad_hoc_signature_selection', 'sigprofilerextractor' ],
@@ -768,9 +754,10 @@ rule cancer:
     input:
         expand("cancer_genes/odds_ratios/{group1_vs_group2}.csv",
             group1_vs_group2=[ tup[0] + "___vs___" + tup[1] 
-                for tup in itertools.combinations(generic_groups + synthetic_groups, r=2) ])
+                for tup in itertools.combinations(config['generic_groups'] + config['synthetic_groups'], r=2) ])
 
 
+'''
 rule response:
     input:
         expand("respfig1/{group}_genes{inset}.pdf",
@@ -778,28 +765,27 @@ rule response:
             group=[ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap', 'mda_sox10_elderly', 'mda_gfap_elderly' ],
             inset=[ '', '_inset' ]),
         "respfig2/pta_neuron_half1_vs_pta_oligo_half1.corrected.pdf",
-        #"respfig2/pta_neuron_half2_vs_pta_neuron_half2.corrected.csv",
         "respfig2/pta_neuron_half2_vs_pta_oligo_half2.corrected.pdf",
-        #"respfig2/pta_oligo_half2_vs_pta_oligo_half2.corrected.csv",
         "respfig2/pta_neuron_vs_pta_oligo_batch1.corrected.pdf",
         "respfig2/pta_neuron_vs_mda_sox10_elderly.corrected.pdf",
         "respfig2/pta_neuron_vs_mda_gfap_elderly.corrected.pdf",
         "respfig2/pta_neuron_vs_pta_oligo.corrected.pdf",
         "respfig2/panel_h_chromhmm___snv.corrected.pdf",
         "respfig2/panel_i_nott_enhprom___snv.corrected.pdf",
-        expand("respfig3/{donor}.pdf",
-            donor=config['all_donors']), #[ '5559', '5657' ]),
+        expand("respfig3/{donor}.pdf", donor=config['all_donors']),
         "respfig4/all_panels.pdf",
         "respfig6/panels_cdefg_enrichment_analyses_pta_neuron_vs_pta_oligo.corrected.pdf",
         "respfig6/quantile_scatter_plots.pdf",
         "respfig6/panel_h_chromhmm___snv.corrected.pdf",
         "respfig6/panel_i_nott_enhprom___snv.corrected.pdf"
+'''
 
 
 
 include: "snakefile.data"
 include: "snakefile.scan2"
 include: "snakefile.scan2_per_donor"
+include: "snakefile.scan2_rescue_groups"
 include: "snakefile.sentieon_for_chrX"
 include: "snakefile.mapd"
 include: "snakefile.suppfig_qual"
@@ -820,6 +806,9 @@ include: "snakefile.spatial_enrichment"
 include: "snakefile.other_enrichment"
 include: "snakefile.snpeff_dndscv_cancer"
 include: "snakefile.enrichment_sensitivity"
+
+# These figures aren't amenable to generalization.
+'''
 include: "snakefile.fig1"
 include: "snakefile.fig2"
 include: "snakefile.fig3"
@@ -1050,6 +1039,7 @@ rule suppfig5:
             comparison=config['all_comparisons'],
             full=[ '', '_full' ],
             ext=[ 'pdf' ])
+'''
 
 
 # Catchall
@@ -1064,18 +1054,18 @@ rule all:
         rules.ginkgo.input,
         rules.mapd.input,
         rules.scan2_metrics.input,
-        rules.response.input,
-        rules.table1.input,
-        "supptables/SuppTable1.csv",
-        "supptables/SuppTable2.csv",
-        rules.fig1.input,
-        rules.fig2.input,
-        rules.figX.input,
-        rules.fig3.input,
-        rules.fig4.input,
-        rules.fig5.input,
-        rules.fig6.input,
-        rules.suppfig2.input,
-        rules.suppfig3.input,
-        rules.suppfig5.input,
+        #rules.response.input,
+        #rules.table1.input,
+        #"supptables/SuppTable1.csv",
+        #"supptables/SuppTable2.csv",
+        #rules.fig1.input,
+        #rules.fig2.input,
+        #rules.figX.input,
+        #rules.fig3.input,
+        #rules.fig4.input,
+        #rules.fig5.input,
+        #rules.fig6.input,
+        #rules.suppfig2.input,
+        #rules.suppfig3.input,
+        #rules.suppfig5.input,
     default_target: True
