@@ -22,7 +22,7 @@ rule download_specific_scan2_rpkg_version:
         # library that are necessary for scripts in this project, but do not affect
         # the SCAN2 mutation calling pipeline. Since the mutation caller is unaffected,
         # it wouldn't make sense to rerun all calling to use the latest commit.
-        # commit_id="aa3d90e715628d34b03862947f43981cc2e62cab"
+        # commit_id="d3d22efe3bc42f5c898ce6a2480689cfcef4b4de"
     localrule: True
     threads: 1
     resources:
@@ -48,7 +48,9 @@ rule download_specific_scan2_version:
         scan2_scripts=directory("scan2/SCAN2_specific_commit/scripts")
     log:
     params:
-        commit_id="401949b5758c40443535a6d8b08f5b7abf165565"
+        #commit_id="fa1949a89c002ee8cc33bff86862aecf52e6000b"
+        #commit_id="4885394a976d95010be12013bef6b0e5cb0a1929"
+        commit_id="9fe032ba1d66816233345d9ff73956473b13af0c"
     localrule: True
     threads: 1
     resources:
@@ -138,7 +140,7 @@ rule scan2_cross_sample_panel_setup:
         shapeit_panel='resources/1000GP_Phase3',
         dbsnp='resources/dbsnp_147_b37_common_all_20160601.vcf',
         panel_metadata='metadata/immutable_metadata.csv',
-        gatk_regions='resources/scan2_panel_regions_30970_windows_100kb.chr2_1kb_window_removed.autosome_only.txt',
+        analyzable_regions='resources/scan2_panel_regions_chr1-22XY_30910_windows_100kb.3kb_unanalyzable_region_removed.txt',
         bams=all_bams,
         bais=[ bam.replace('.bam', '.bai') for bam in all_bams ]
     output:
@@ -162,7 +164,7 @@ rule scan2_cross_sample_panel_setup:
             --ref {input.fasta} \
             --dbsnp {input.dbsnp} \
             --shapeit-refpanel $(realpath {input.shapeit_panel}) \
-            --regions-file {input.gatk_regions} \
+            --regions-file {input.analyzable_regions} \
             --scripts $(realpath {input.scan2_scripts}) \
             --makepanel-metadata {input.panel_metadata} \
             {params.bam_flags}
@@ -184,11 +186,14 @@ rule scan2_cross_sample_panel:
     resources:
         mem_mb=4000
     shell:
+        # --notemp: the new scan2 rules that adds a dummy rule to create
+        #   an argument file of VCFs (which are temped()) make it impossible
+        #   to rerun the pipeline without recomputing everything.
         """
         {input.scan2_bin} -d scan2/panel/makepanel --snakefile {input.scan2_snakefile} \
             makepanel \
                 --joblimit 1000 \
-                --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=5760' \
+                --snakemake-args ' --notemp --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=5760' \
         """
 
 
@@ -202,7 +207,7 @@ rule scan2_call_mutations_setup:
         fadict='resources/human_g1k_v37_decoy.dict',
         shapeit_panel='resources/1000GP_Phase3',
         dbsnp='resources/dbsnp_147_b37_common_all_20160601.vcf',
-        gatk_regions='resources/scan2_gatk_regions_1167windows_2500000_no_bad_chunk.txt',
+        analysis_regions='resources/scan2_analysis_regions_chr1-22XY_1252windows_2500kb.3kb_unanalyzable_region_removed.txt',
         sc_bams=lambda wildcards: bams[wildcards.donor]['single_cell'].values(),
         sc_bais=lambda wildcards: [ bam.replace('.bam', '.bai') for bam in bams[wildcards.donor]['single_cell'].values() ],
         bulk_bams=lambda wildcards: bams[wildcards.donor]['bulk'].values(),
@@ -212,6 +217,7 @@ rule scan2_call_mutations_setup:
         yaml="scan2/{donor}/scan2/scan.yaml"
     params:
         dir=directory("scan2/{donor}/scan2"),
+        donor_sex=lambda wildcards: 'male' if config['donor_sex'][wildcards.donor] == 'M' else ('female' if config['donor_sex'][wildcards.donor] == 'F' else 'unknown'),
         sc_bam_flags=lambda wildcards, input: ' '.join([ '--sc-bam ' + bam for bam in input.sc_bams ]),
         bulk_bam_flag=lambda wildcards, input: '--bulk-bam ' + input.bulk_bams[0],
         other_bam_flags=lambda wildcards, input: ' '.join([ '--bam ' + bam for bam in input.bulk_bams[-0] ])
@@ -227,12 +233,13 @@ rule scan2_call_mutations_setup:
         {input.scan2_bin} -d {params.dir} --snakefile {input.scan2_snakefile} init
         {input.scan2_bin} -d {params.dir} --snakefile {input.scan2_snakefile} config \
             --verbose \
+            --sex {params.donor_sex} \
             --analysis call_mutations \
             --gatk sentieon_joint \
             --ref {input.fasta} \
             --dbsnp {input.dbsnp} \
             --shapeit-refpanel $(realpath {input.shapeit_panel}) \
-            --regions-file {input.gatk_regions} \
+            --regions-file {input.analysis_regions} \
             --scripts $(realpath {input.scan2_scripts}) \
             --abmodel-n-cores 10 \
             --sensitivity-n-cores 10 \
@@ -257,16 +264,20 @@ rule scan2_call_mutations:
         'scan2/{donor}/scan2/log.txt'
     threads: 1
     resources:
-        mem_mb=4000
+        mem_mb=4000,
+        scan2jobs=1
     shell:
-        # Very intentionally not putting --drmaa or --snakemake-args as Snakemake params.
+        # Very intentionally not putting --snakemake-args as Snakemake params.
         # Changing these do not change results, but Snakemake will rerun jobs
         # if the params change.
+        # --notemp: the new scan2 rules that adds a dummy rule to create
+        #   an argument file of VCFs (which are temped()) make it impossible
+        #   to rerun the pipeline without recomputing everything.
         """
         {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
             run \
-                --joblimit 800 \
-                --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=2880' \
+                --joblimit 300 \
+                --snakemake-args ' --until gatk/hc_raw.mmq60.bcf gatk/hc_raw.mmq1.bcf --notemp --restart-times=2 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=2880' \
         """
 
 
