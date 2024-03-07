@@ -26,7 +26,7 @@ if [ "x$?" == "x1" ]; then
 fi
 
 # $flags is always built added to, never taken from
-flags='-s=snakemake/Snakefile --dir=. --latency-wait=60 --resources localjob=1 roadmap_download=10 encode_download=10 ucsc_download=10 --rerun-incomplete'
+flags='-s=snakemake/Snakefile --dir=. --latency-wait=60 --resources localjob=1 scan2jobs=5 roadmap_download=10 encode_download=10 ucsc_download=10 --rerun-incomplete'
         #--restart-times 2 \  # This is NECESSARY for some jobs that have step-up memory reqs
 jobflag='-j=10'
 kgflag=''
@@ -65,8 +65,6 @@ fi
 if [ $usecluster == "true" ]; then
     snakemake $flags $kgflag $jobflag \
         --slurm --default-resources slurm_account=$slurm_account slurm_partition=$slurm_partition runtime=$slurm_runtime
-        #--drmaa=' -p priopark -A park_contrib --mem={resources.mem_mb} -c {threads} -t 4:00:00 -o cluster-logs/slurm-%A.log'
-        #--max-threads=12 $jobflag \
 else
     echo "snakemake $flags $kgflag --max-threads=12 $jobflag"
     snakemake $flags $kgflag --max-threads=12 $jobflag
