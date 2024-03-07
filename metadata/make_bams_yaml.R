@@ -4,6 +4,8 @@ args <- commandArgs(trailingOnly=TRUE)
 
 immutable_meta.csv <- args[1]
 out.yaml <- args[2]
+if (length(args) != 2) 
+    stop('usage: make_bams_yaml.R immutable_metadata.csv out.yaml')
 
 if (file.exists(out.yaml)) {
     stop(paste0('output file ', out.yaml, ' already exists, please delete it first'))
