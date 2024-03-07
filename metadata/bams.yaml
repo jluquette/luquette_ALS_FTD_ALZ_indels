@@ -1,14 +1,96 @@
-'1278':
+'UMB1465':
     single_cell:
-        1278-Oligo-5: bams/1278-Oligo-5.bam
-        1278-Oligo-7: bams/1278-Oligo-7.bam
-        1278-Oligo-8: bams/1278-Oligo-8.bam
-        1278BA9-A: bams/1278BA9-A.bam
-        1278BA9-B: bams/1278BA9-B.bam
-        1278BA9-C: bams/1278BA9-C.bam
-        1278_OL1: bams/1278_OL1.bam
-        1278_OL2: bams/1278_OL2.bam
-        1278_OL4: bams/1278_OL4.bam
+        1465-cortex_1-neuron_MDA_12: bams/1465-cortex_1-neuron_MDA_12.bam
+        1465-cortex_1-neuron_MDA_18: bams/1465-cortex_1-neuron_MDA_18.bam
+        1465-cortex_1-neuron_MDA_20: bams/1465-cortex_1-neuron_MDA_20.bam
+        1465-cortex_1-neuron_MDA_24: bams/1465-cortex_1-neuron_MDA_24.bam
+        1465-cortex_1-neuron_MDA_25: bams/1465-cortex_1-neuron_MDA_25.bam
+        1465-cortex_1-neuron_MDA_2_WGSb: bams/1465-cortex_1-neuron_MDA_2_WGSb.bam
+        1465-cortex_1-neuron_MDA_30: bams/1465-cortex_1-neuron_MDA_30.bam
+        1465-cortex_1-neuron_MDA_39: bams/1465-cortex_1-neuron_MDA_39.bam
+        1465-cortex_1-neuron_MDA_3_WGSb: bams/1465-cortex_1-neuron_MDA_3_WGSb.bam
+        1465-cortex_1-neuron_MDA_46: bams/1465-cortex_1-neuron_MDA_46.bam
+        1465-cortex_1-neuron_MDA_47: bams/1465-cortex_1-neuron_MDA_47.bam
+        1465-cortex_1-neuron_MDA_5: bams/1465-cortex_1-neuron_MDA_5.bam
+        1465-cortex_1-neuron_MDA_51_WGSb: bams/1465-cortex_1-neuron_MDA_51_WGSb.bam
+        1465-cortex_1-neuron_MDA_6_WGSb: bams/1465-cortex_1-neuron_MDA_6_WGSb.bam
+        1465_ct_8p2h8: bams/1465_ct_8p2h8.bam
+        1465_ct_p2B11: bams/1465_ct_p2B11.bam
+        1465_ctx_p2F06: bams/1465_ctx_p2F06.bam
+        1465_ctx_p2g8: bams/1465_ctx_p2g8.bam
+        1465-2-C1: bams/1465-2-C1.bam
+        1465-2-E12: bams/1465-2-E12.bam
+        1465_pfcalk-1cA12: bams/1465_pfcalk-1cA12.bam
+        1465_pfcalk-1cB07: bams/1465_pfcalk-1cB07.bam
+        1465_pfcalk-1cB08: bams/1465_pfcalk-1cB08.bam
+        1465_pfcalk-1cD09: bams/1465_pfcalk-1cD09.bam
+        1465BA9-A: bams/1465BA9-A.bam
+        1465BA9-B: bams/1465BA9-B.bam
+        1465BA9-C: bams/1465BA9-C.bam
+        1465BA9-D: bams/1465BA9-D.bam
+        1465-Oligo-5: bams/1465-Oligo-5.bam
+        1465-Oligo-7: bams/1465-Oligo-7.bam
+        1465-Oligo-8: bams/1465-Oligo-8.bam
+        1465_OL1: bams/1465_OL1.bam
+        1465_OL2: bams/1465_OL2.bam
+        1465_OL3: bams/1465_OL3.bam
+    bulk:
+        1465-heart_BulkDNA_WGSb: bams/1465-heart_BulkDNA_WGSb.bam
+        1465-cortex_BulkDNA_WGSb: bams/1465-cortex_BulkDNA_WGSb.bam
+'UMB4638':
+    single_cell:
+        4638-MDA-2: bams/4638-MDA-2.bam
+        4638-MDA-03: bams/4638-MDA-03.bam
+        4638-MDA-4: bams/4638-MDA-4.bam
+        4638-MDA-7: bams/4638-MDA-7.bam
+        4638-MDA-11: bams/4638-MDA-11.bam
+        4638-MDA-12: bams/4638-MDA-12.bam
+        4638-MDA-13: bams/4638-MDA-13.bam
+        4638-MDA-14: bams/4638-MDA-14.bam
+        4638-MDA-15: bams/4638-MDA-15.bam
+        4638-MDA-20: bams/4638-MDA-20.bam
+        4638-MDA-24: bams/4638-MDA-24.bam
+        4638-Neuron-4: bams/4638-Neuron-4.bam
+        4638-Neuron-5: bams/4638-Neuron-5.bam
+        4638-Neuron-6: bams/4638-Neuron-6.bam
+        4638-Oligo-4: bams/4638-Oligo-4.bam
+        4638-Oligo-5: bams/4638-Oligo-5.bam
+        4638_OL3: bams/4638_OL3.bam
+        4638_OL8: bams/4638_OL8.bam
+    bulk:
+        4638-Bulk-Heart: bams/4638-Bulk-Heart.bam
+'UMB4643':
+    single_cell:
+        4643_MDA_1: bams/4643_MDA_1.bam
+        4643_MDA_2: bams/4643_MDA_2.bam
+        4643-MDA_23: bams/4643-MDA_23.bam
+        4643_MDA_24: bams/4643_MDA_24.bam
+        4643_MDA_26: bams/4643_MDA_26.bam
+        4643_MDA_3: bams/4643_MDA_3.bam
+        4643_MDA_31: bams/4643_MDA_31.bam
+        4643_MDA_32: bams/4643_MDA_32.bam
+        4643_MDA_4: bams/4643_MDA_4.bam
+        4643_MDA_5: bams/4643_MDA_5.bam
+        4643-Neuron-3: bams/4643-Neuron-3.bam
+        4643-Neuron-4: bams/4643-Neuron-4.bam
+        4643-Neuron-6: bams/4643-Neuron-6.bam
+        4643-Oligo-5: bams/4643-Oligo-5.bam
+        4643-Oligo-6: bams/4643-Oligo-6.bam
+        4643-Oligo-8: bams/4643-Oligo-8.bam
+        4643_OL3: bams/4643_OL3.bam
+    bulk:
+        4643_Bulk-Liver: bams/4643_Bulk-Liver.bam
+'UMB1278':
+    single_cell:
+        1278_ct_p1E3: bams/1278_ct_p1E3.bam
+        1278_ct_p1E6: bams/1278_ct_p1E6.bam
+        1278_ct_p1G9: bams/1278_ct_p1G9.bam
+        1278_ct_p2B9: bams/1278_ct_p2B9.bam
+        1278_ct_p2C7: bams/1278_ct_p2C7.bam
+        1278_ct_p2E4: bams/1278_ct_p2E4.bam
+        1278_ct_p2E6: bams/1278_ct_p2E6.bam
+        1278_ct_p2F5: bams/1278_ct_p2F5.bam
+        1278_ct_p2G5: bams/1278_ct_p2G5.bam
         GliaLC-5-B12: bams/GliaLC-5-B12.bam
         GliaLC-5-B7: bams/GliaLC-5-B7.bam
         GliaLC-5-B8: bams/GliaLC-5-B8.bam
@@ -19,59 +101,26 @@
         GliaLC-5-G7: bams/GliaLC-5-G7.bam
         GliaLC-5-H10: bams/GliaLC-5-H10.bam
         GliaLC-5-H11: bams/GliaLC-5-H11.bam
+        1278BA9-A: bams/1278BA9-A.bam
+        1278BA9-B: bams/1278BA9-B.bam
+        1278BA9-C: bams/1278BA9-C.bam
+        1278-Oligo-5: bams/1278-Oligo-5.bam
+        1278-Oligo-7: bams/1278-Oligo-7.bam
+        1278-Oligo-8: bams/1278-Oligo-8.bam
+        1278_OL1: bams/1278_OL1.bam
+        1278_OL2: bams/1278_OL2.bam
+        1278_OL4: bams/1278_OL4.bam
+        1278_BA6_A: bams/1278_BA6_A.bam
+        1278_BA6_B: bams/1278_BA6_B.bam
+        1278_BA6_C: bams/1278_BA6_C.bam
     bulk:
         1278_heart_bulk: bams/1278_heart_bulk.bam
-'1465':
+'UMB5171':
     single_cell:
-        1465-Oligo-5: bams/1465-Oligo-5.bam
-        1465-Oligo-7: bams/1465-Oligo-7.bam
-        1465-Oligo-8: bams/1465-Oligo-8.bam
-        1465BA9-A: bams/1465BA9-A.bam
-        1465BA9-B: bams/1465BA9-B.bam
-        1465BA9-C: bams/1465BA9-C.bam
-        1465BA9-D: bams/1465BA9-D.bam
-        1465_OL1: bams/1465_OL1.bam
-        1465_OL2: bams/1465_OL2.bam
-        1465_OL3: bams/1465_OL3.bam
-    bulk:
-        1465-heart_BulkDNA_WGSb: bams/1465-heart_BulkDNA_WGSb.bam
-        1465-cortex_BulkDNA_WGSb: bams/1465-cortex_BulkDNA_WGSb.bam
-'4638':
-    single_cell:
-        4638-Neuron-4: bams/4638-Neuron-4.bam
-        4638-Neuron-5: bams/4638-Neuron-5.bam
-        4638-Neuron-6: bams/4638-Neuron-6.bam
-        4638-Oligo-4: bams/4638-Oligo-4.bam
-        4638-Oligo-5: bams/4638-Oligo-5.bam
-        4638_OL3: bams/4638_OL3.bam
-        4638_OL8: bams/4638_OL8.bam
-    bulk:
-        4638-Bulk-Heart: bams/4638-Bulk-Heart.bam
-'4643':
-    single_cell:
-        4643-Neuron-3: bams/4643-Neuron-3.bam
-        4643-Neuron-4: bams/4643-Neuron-4.bam
-        4643-Neuron-6: bams/4643-Neuron-6.bam
-        4643-Oligo-5: bams/4643-Oligo-5.bam
-        4643-Oligo-6: bams/4643-Oligo-6.bam
-        4643-Oligo-8: bams/4643-Oligo-8.bam
-        4643_OL3: bams/4643_OL3.bam
-    bulk:
-        4643_Bulk-Liver: bams/4643_Bulk-Liver.bam
-'5087':
-    single_cell:
-        5087-Oligo-4: bams/5087-Oligo-4.bam
-        5087-Oligo-5: bams/5087-Oligo-5.bam
-        5087-Oligo-7: bams/5087-Oligo-7.bam
-        5087PFC-A: bams/5087PFC-A.bam
-        5087PFC-B: bams/5087PFC-B.bam
-        5087PFC-C: bams/5087PFC-C.bam
-        5087_OL2: bams/5087_OL2.bam
-        5087_OL8: bams/5087_OL8.bam
-    bulk:
-        5087-hrt-1b1: bams/5087-hrt-1b1.bam
-'5171':
-    single_cell:
+        5171_ct_p1H1: bams/5171_ct_p1H1.bam
+        5171_ct_p2F11: bams/5171_ct_p2F11.bam
+        5171_ct_p2F12: bams/5171_ct_p2F12.bam
+        5171_ct_p2G4: bams/5171_ct_p2G4.bam
         GliaLC-6-A5: bams/GliaLC-6-A5.bam
         GliaLC-6-B4: bams/GliaLC-6-B4.bam
         GliaLC-6-B5: bams/GliaLC-6-B5.bam
@@ -82,10 +131,26 @@
         GliaLC-6-G3: bams/GliaLC-6-G3.bam
         GliaLC-6-G4: bams/GliaLC-6-G4.bam
         GliaLC-6-H3: bams/GliaLC-6-H3.bam
+        5171_180713_P2E03: bams/5171_180713_P2E03.bam
+        5171_180713_P2F01: bams/5171_180713_P2F01.bam
+        5171_180713_P2F06: bams/5171_180713_P2F06.bam
+        5171_180713_P2F08: bams/5171_180713_P2F08.bam
+        UMB5171_p1A09: bams/UMB5171_p1A09.bam
+        UMB5171_p1C01: bams/UMB5171_p1C01.bam
+        UMB5171_p1D11: bams/UMB5171_p1D11.bam
+        UMB5171_p1E07: bams/UMB5171_p1E07.bam
+        UMB5171_p1H01: bams/UMB5171_p1H01.bam
+        5171BA6-B2: bams/5171BA6-B2.bam
+        5171BA6-D2: bams/5171BA6-D2.bam
+        5171BA6-E2: bams/5171BA6-E2.bam
     bulk:
         5171_cb_bulk: bams/5171_cb_bulk.bam
-'5219':
+'UMB5219':
     single_cell:
+        5219_ct_p1G1: bams/5219_ct_p1G1.bam
+        5219_ct_p1G7: bams/5219_ct_p1G7.bam
+        5219_ct_p2A12: bams/5219_ct_p2A12.bam
+        5219_ct_p2C3: bams/5219_ct_p2C3.bam
         5219-Neuron-2: bams/5219-Neuron-2.bam
         5219-Neuron-4: bams/5219-Neuron-4.bam
         5219-Neuron-5: bams/5219-Neuron-5.bam
@@ -94,33 +159,135 @@
         5219-Oligo-7: bams/5219-Oligo-7.bam
         5219_OL4: bams/5219_OL4.bam
         5219_OL8: bams/5219_OL8.bam
+        5219_BA6_A: bams/5219_BA6_A.bam
+        5219_BA6_B: bams/5219_BA6_B.bam
+        5219_BA6_C: bams/5219_BA6_C.bam
     bulk:
         5219_cb_bulk: bams/5219_cb_bulk.bam
-'5559':
+'UMB5817':
     single_cell:
-        5559-Oligo-3: bams/5559-Oligo-3.bam
-        5559-Oligo-5: bams/5559-Oligo-5.bam
-        5559-Oligo-8: bams/5559-Oligo-8.bam
+        5817_ct_p1H10: bams/5817_ct_p1H10.bam
+        5817_ct_p1H2: bams/5817_ct_p1H2.bam
+        5817_ct_p1H5: bams/5817_ct_p1H5.bam
+        5817_ct_p2H6: bams/5817_ct_p2H6.bam
+        5817PFC-A: bams/5817PFC-A.bam
+        5817PFC-B: bams/5817PFC-B.bam
+        5817PFC-C: bams/5817PFC-C.bam
+        5817-Oligo-4: bams/5817-Oligo-4.bam
+        5817-Oligo-6: bams/5817-Oligo-6.bam
+        5817-Oligo-7: bams/5817-Oligo-7.bam
+        5817_OL2: bams/5817_OL2.bam
+        5817_OL3: bams/5817_OL3.bam
+        5817_OL8: bams/5817_OL8.bam
+        5817_BA6_A: bams/5817_BA6_A.bam
+        5817_BA6_B: bams/5817_BA6_B.bam
+        5817_BA6_C: bams/5817_BA6_C.bam
+    bulk:
+        5817_liver_bulk: bams/5817_liver_bulk.bam
+'UMB5511':
+    single_cell:
+        5511_20150527-pfc-1cp1F6_20170221-WGS: bams/5511_20150527-pfc-1cp1F6_20170221-WGS.bam
+        5511_20150527-pfc-1cp2D3_20170221-WGS: bams/5511_20150527-pfc-1cp2D3_20170221-WGS.bam
+        5511_20150527-pfc-1cp2F3_20170221-WGS: bams/5511_20150527-pfc-1cp2F3_20170221-WGS.bam
+    bulk:
+        5511-cer-1b1_20170221-WGS: bams/5511-cer-1b1_20170221-WGS.bam
+'UMB5823':
+    single_cell:
+        5823_20160810-dg-1cp2E1_20170221-WGS: bams/5823_20160810-dg-1cp2E1_20170221-WGS.bam
+        5823_20160810-dg-1cp3D11_20170221-WGS: bams/5823_20160810-dg-1cp3D11_20170221-WGS.bam
+        5823_20160810-dg-1cp3H1_20170221-WGS: bams/5823_20160810-dg-1cp3H1_20170221-WGS.bam
+        5823_20160824-pfc-1cp1F11_20170221-WGS: bams/5823_20160824-pfc-1cp1F11_20170221-WGS.bam
+        5823_20160824-pfc-1cp2E1_20170221-WGS: bams/5823_20160824-pfc-1cp2E1_20170221-WGS.bam
+        5823_20160824-pfc-1cp2G5_20170221-WGS: bams/5823_20160824-pfc-1cp2G5_20170221-WGS.bam
+        5823_180716_H1B10: bams/5823_180716_H1B10.bam
+        5823_180716_H1E04: bams/5823_180716_H1E04.bam
+        5823_180716_H1E07: bams/5823_180716_H1E07.bam
+        5823_180716_H1F04: bams/5823_180716_H1F04.bam
+        5823_180716_H1H05: bams/5823_180716_H1H05.bam
+        5823BA6-D11: bams/5823BA6-D11.bam
+        5823BA6-E10: bams/5823BA6-E10.bam
+        5823BA6-E7: bams/5823BA6-E7.bam
+        5823PFC-A: bams/5823PFC-A.bam
+        5823PFC-B: bams/5823PFC-B.bam
+        5823PFC-C: bams/5823PFC-C.bam
+        5823-Oligo-6: bams/5823-Oligo-6.bam
+        5823-Oligo-7: bams/5823-Oligo-7.bam
+        5823-Oligo-8: bams/5823-Oligo-8.bam
+        5823_OL1: bams/5823_OL1.bam
+        5823_OL2: bams/5823_OL2.bam
+        5823_OL3: bams/5823_OL3.bam
+        5823_OL4: bams/5823_OL4.bam
+        5823_OL5: bams/5823_OL5.bam
+        5823_BA6_A: bams/5823_BA6_A.bam
+        5823_BA6_B: bams/5823_BA6_B.bam
+        5823_BA6_C: bams/5823_BA6_C.bam
+    bulk:
+        5823-tempmusc-1b1_20170221-WGS: bams/5823-tempmusc-1b1_20170221-WGS.bam
+'UMB5840':
+    single_cell:
+        5840_20160809-pfc-1cp1C2_20170221-WGS: bams/5840_20160809-pfc-1cp1C2_20170221-WGS.bam
+        5840_20160809-pfc-1cp1D7_20170221-WGS: bams/5840_20160809-pfc-1cp1D7_20170221-WGS.bam
+        5840_20160809-pfc-1cp1G4_20170221-WGS: bams/5840_20160809-pfc-1cp1G4_20170221-WGS.bam
+        5840_20160810-dg-1cp2D10_20170221-WGS: bams/5840_20160810-dg-1cp2D10_20170221-WGS.bam
+        5840_20160810-dg-1cp3A10_20170221-WGS: bams/5840_20160810-dg-1cp3A10_20170221-WGS.bam
+        5840_20160810-dg-1cp3F8_20170221-WGS: bams/5840_20160810-dg-1cp3F8_20170221-WGS.bam
+        5840-190107-Hp2A12: bams/5840-190107-Hp2A12.bam
+        5840-190107-Hp2B02: bams/5840-190107-Hp2B02.bam
+        5840-190107-Hp2B08: bams/5840-190107-Hp2B08.bam
+        5840-190107-Hp2F03: bams/5840-190107-Hp2F03.bam
+        5840-190107-Hp2F12: bams/5840-190107-Hp2F12.bam
+    bulk:
+        5840-hrt-1b1_20170221-WGS: bams/5840-hrt-1b1_20170221-WGS.bam
+'UMB936':
+    single_cell:
+        936_20141001-pfc-1cp1G11_20170221-WGS: bams/936_20141001-pfc-1cp1G11_20170221-WGS.bam
+        936_20141001-pfc-1cp1H9_20170221-WGS: bams/936_20141001-pfc-1cp1H9_20170221-WGS.bam
+        936_20141001-pfc-1cp2F6_20170221-WGS: bams/936_20141001-pfc-1cp2F6_20170221-WGS.bam
+        936PFC-A: bams/936PFC-A.bam
+        936PFC-B: bams/936PFC-B.bam
+        936PFC-C: bams/936PFC-C.bam
+        936-Oligo-4: bams/936-Oligo-4.bam
+        936-Oligo-5: bams/936-Oligo-5.bam
+        936-Oligo-6: bams/936-Oligo-6.bam
+        936_BA6_A: bams/936_BA6_A.bam
+        936_BA6_B: bams/936_BA6_B.bam
+        936_BA6_C: bams/936_BA6_C.bam
+    bulk:
+        936-hrt-1b1_20170221-WGS: bams/936-hrt-1b1_20170221-WGS.bam
+'UMB5559':
+    single_cell:
+        5559-dg1C11: bams/5559-dg1C11.bam
+        5559-dg1F1: bams/5559-dg1F1.bam
+        5559-dg3A11: bams/5559-dg3A11.bam
+        5559-dg4C11: bams/5559-dg4C11.bam
+        5559-dg4E3: bams/5559-dg4E3.bam
+        5559-pfc1C4: bams/5559-pfc1C4.bam
+        5559-pfc1C7: bams/5559-pfc1C7.bam
+        5559-pfc1E2: bams/5559-pfc1E2.bam
+        5559-pfc1H2: bams/5559-pfc1H2.bam
+        5559-pfc2A3: bams/5559-pfc2A3.bam
         5559PFC-A: bams/5559PFC-A.bam
         5559PFC-B: bams/5559PFC-B.bam
         5559PFC-C: bams/5559PFC-C.bam
+        5559-Oligo-3: bams/5559-Oligo-3.bam
+        5559-Oligo-5: bams/5559-Oligo-5.bam
+        5559-Oligo-8: bams/5559-Oligo-8.bam
         5559_OL1: bams/5559_OL1.bam
         5559_OL2: bams/5559_OL2.bam
     bulk:
         5559-bulk: bams/5559-bulk.bam
-'5657':
+'UMB5657':
     single_cell:
-        5657-Oligo-3: bams/5657-Oligo-3.bam
-        5657-Oligo-5: bams/5657-Oligo-5.bam
-        5657-Oligo-7: bams/5657-Oligo-7.bam
-        5657PFC-A: bams/5657PFC-A.bam
-        5657PFC-B: bams/5657PFC-B.bam
-        5657PFC-C: bams/5657PFC-C.bam
-        5657_OL1: bams/5657_OL1.bam
-        5657_OL2: bams/5657_OL2.bam
-        5657_OL4: bams/5657_OL4.bam
-        5657_OL6: bams/5657_OL6.bam
-        5657_OL8: bams/5657_OL8.bam
+        5657-pfc1D2: bams/5657-pfc1D2.bam
+        5657-pfc1E11: bams/5657-pfc1E11.bam
+        5657-pfc2A6: bams/5657-pfc2A6.bam
+        5657-pfc2F1: bams/5657-pfc2F1.bam
+        5657-pfc2G9: bams/5657-pfc2G9.bam
+        5657-dg1G2: bams/5657-dg1G2.bam
+        5657-dg2G2: bams/5657-dg2G2.bam
+        5657-dg4A12: bams/5657-dg4A12.bam
+        5657-dg4B1: bams/5657-dg4B1.bam
+        5657-dg4H1: bams/5657-dg4H1.bam
         GliaLC-4-B12: bams/GliaLC-4-B12.bam
         GliaLC-4-D12: bams/GliaLC-4-D12.bam
         GliaLC-4-D8: bams/GliaLC-4-D8.bam
@@ -131,47 +298,76 @@
         GliaLC-4-G10: bams/GliaLC-4-G10.bam
         GliaLC-4-H7: bams/GliaLC-4-H7.bam
         GliaLC-4-H8: bams/GliaLC-4-H8.bam
+        5657_180713_P1B06: bams/5657_180713_P1B06.bam
+        5657_180713_P1C01: bams/5657_180713_P1C01.bam
+        5657_180713_P1E08: bams/5657_180713_P1E08.bam
+        5657_180713_P1E10: bams/5657_180713_P1E10.bam
+        5657_180713_P1E11: bams/5657_180713_P1E11.bam
+        5657_180716_H1A08: bams/5657_180716_H1A08.bam
+        5657_180716_H1F01: bams/5657_180716_H1F01.bam
+        5657_180716_H1F09: bams/5657_180716_H1F09.bam
+        5657_180716_H1H08: bams/5657_180716_H1H08.bam
+        5657_180716_H1H11: bams/5657_180716_H1H11.bam
+        5657PFC-A: bams/5657PFC-A.bam
+        5657PFC-B: bams/5657PFC-B.bam
+        5657PFC-C: bams/5657PFC-C.bam
+        5657-Oligo-3: bams/5657-Oligo-3.bam
+        5657-Oligo-5: bams/5657-Oligo-5.bam
+        5657-Oligo-7: bams/5657-Oligo-7.bam
+        5657_OL1: bams/5657_OL1.bam
+        5657_OL2: bams/5657_OL2.bam
+        5657_OL4: bams/5657_OL4.bam
+        5657_OL6: bams/5657_OL6.bam
+        5657_OL8: bams/5657_OL8.bam
+        5657_BA6_A: bams/5657_BA6_A.bam
+        5657_BA6_B: bams/5657_BA6_B.bam
+        5657_BA6_C: bams/5657_BA6_C.bam
     bulk:
         5657-bulk: bams/5657-bulk.bam
-'5817':
+'UMB5087':
     single_cell:
-        5817-Oligo-4: bams/5817-Oligo-4.bam
-        5817-Oligo-6: bams/5817-Oligo-6.bam
-        5817-Oligo-7: bams/5817-Oligo-7.bam
-        5817PFC-A: bams/5817PFC-A.bam
-        5817PFC-B: bams/5817PFC-B.bam
-        5817PFC-C: bams/5817PFC-C.bam
-        5817_OL2: bams/5817_OL2.bam
-        5817_OL3: bams/5817_OL3.bam
-        5817_OL8: bams/5817_OL8.bam
+        5087-1cp1C6: bams/5087-1cp1C6.bam
+        5087-1cp1C9: bams/5087-1cp1C9.bam
+        5087-1cp1D6: bams/5087-1cp1D6.bam
+        5087-1cp1H10b: bams/5087-1cp1H10b.bam
+        5087-1cp2A2: bams/5087-1cp2A2.bam
+        5087pfc-Lp1C5: bams/5087pfc-Lp1C5.bam
+        5087pfc-Rp1G4: bams/5087pfc-Rp1G4.bam
+        5087pfc-Rp3C5: bams/5087pfc-Rp3C5.bam
+        5087pfc-Rp3F4: bams/5087pfc-Rp3F4.bam
+        5087-190107-Hp1A09: bams/5087-190107-Hp1A09.bam
+        5087-190107-Hp1E12: bams/5087-190107-Hp1E12.bam
+        5087-190107-Hp1F06: bams/5087-190107-Hp1F06.bam
+        5087-190107-Hp1F09: bams/5087-190107-Hp1F09.bam
+        5087-190107-Hp1G08: bams/5087-190107-Hp1G08.bam
+        5087PFC-A: bams/5087PFC-A.bam
+        5087PFC-B: bams/5087PFC-B.bam
+        5087PFC-C: bams/5087PFC-C.bam
+        5087-Oligo-4: bams/5087-Oligo-4.bam
+        5087-Oligo-5: bams/5087-Oligo-5.bam
+        5087-Oligo-7: bams/5087-Oligo-7.bam
+        5087_OL2: bams/5087_OL2.bam
+        5087_OL8: bams/5087_OL8.bam
+        5087_BA6_A: bams/5087_BA6_A.bam
+        5087_BA6_B: bams/5087_BA6_B.bam
+        5087_BA6_C: bams/5087_BA6_C.bam
     bulk:
-        5817_liver_bulk: bams/5817_liver_bulk.bam
-'5823':
+        5087-hrt-1b1: bams/5087-hrt-1b1.bam
+'UMB5532':
     single_cell:
-        5823-Oligo-6: bams/5823-Oligo-6.bam
-        5823-Oligo-7: bams/5823-Oligo-7.bam
-        5823-Oligo-8: bams/5823-Oligo-8.bam
-        5823PFC-A: bams/5823PFC-A.bam
-        5823PFC-B: bams/5823PFC-B.bam
-        5823PFC-C: bams/5823PFC-C.bam
-        5823_OL1: bams/5823_OL1.bam
-        5823_OL2: bams/5823_OL2.bam
-        5823_OL3: bams/5823_OL3.bam
-        5823_OL4: bams/5823_OL4.bam
-        5823_OL5: bams/5823_OL5.bam
+        5532-1cp1E11: bams/5532-1cp1E11.bam
+        5532-1cp1E9: bams/5532-1cp1E9.bam
+        5532-1cp1H11: bams/5532-1cp1H11.bam
+        5532-1cp1H4: bams/5532-1cp1H4.bam
+        5532-1cp1H9: bams/5532-1cp1H9.bam
+        5532pfc-Lp1C5: bams/5532pfc-Lp1C5.bam
+        5532pfc-Lp2C5: bams/5532pfc-Lp2C5.bam
+        5532pfc-Rp1C11: bams/5532pfc-Rp1C11.bam
+        5532pfc-Rp1H7: bams/5532pfc-Rp1H7.bam
     bulk:
-        5823-tempmusc-1b1_20170221-WGS: bams/5823-tempmusc-1b1_20170221-WGS.bam
-'5871':
+        5532-hrt-1b1: bams/5532-hrt-1b1.bam
+'UMB5871':
     single_cell:
-        5871-Neuron-4: bams/5871-Neuron-4.bam
-        5871-Neuron-5: bams/5871-Neuron-5.bam
-        5871-Neuron-6: bams/5871-Neuron-6.bam
-        5871-Oligo-4: bams/5871-Oligo-4.bam
-        5871-Oligo-5: bams/5871-Oligo-5.bam
-        5871-Oligo-7: bams/5871-Oligo-7.bam
-        5871_OL3: bams/5871_OL3.bam
-        5871_OL6: bams/5871_OL6.bam
-        5871_OL8: bams/5871_OL8.bam
         GliaLC-6-A7: bams/GliaLC-6-A7.bam
         GliaLC-6-B10: bams/GliaLC-6-B10.bam
         GliaLC-6-D10: bams/GliaLC-6-D10.bam
@@ -182,62 +378,371 @@
         GliaLC-6-G7: bams/GliaLC-6-G7.bam
         GliaLC-6-H12: bams/GliaLC-6-H12.bam
         GliaLC-6-H7: bams/GliaLC-6-H7.bam
+        5871-Neuron-4: bams/5871-Neuron-4.bam
+        5871-Neuron-5: bams/5871-Neuron-5.bam
+        5871-Neuron-6: bams/5871-Neuron-6.bam
+        5871-Oligo-4: bams/5871-Oligo-4.bam
+        5871-Oligo-5: bams/5871-Oligo-5.bam
+        5871-Oligo-7: bams/5871-Oligo-7.bam
+        5871_OL3: bams/5871_OL3.bam
+        5871_OL6: bams/5871_OL6.bam
+        5871_OL8: bams/5871_OL8.bam
     bulk:
         5871-BLK-liver: bams/5871-BLK-liver.bam
-'936':
+'MADRC1353':
     single_cell:
-        936-Oligo-4: bams/936-Oligo-4.bam
-        936-Oligo-5: bams/936-Oligo-5.bam
-        936-Oligo-6: bams/936-Oligo-6.bam
-        936PFC-A: bams/936PFC-A.bam
-        936PFC-B: bams/936PFC-B.bam
-        936PFC-C: bams/936PFC-C.bam
+        1353-181114-Pp2B08: bams/1353-181114-Pp2B08.bam
+        1353-181114-Pp2H04: bams/1353-181114-Pp2H04.bam
+        1353-181114-Pp2H10: bams/1353-181114-Pp2H10.bam
+        1353_180322_P1E03: bams/1353_180322_P1E03.bam
+        1353_180322_Pp1C02: bams/1353_180322_Pp1C02.bam
+        1353_180322_Pp1G05: bams/1353_180322_Pp1G05.bam
+        1353_180322_Pp1H01: bams/1353_180322_Pp1H01.bam
+        1353_180327_Hp1D03: bams/1353_180327_Hp1D03.bam
+        1353_180508_Hp2C08: bams/1353_180508_Hp2C08.bam
+        1353_180508_Hp2E08: bams/1353_180508_Hp2E08.bam
+        1353_180508_Hp2G06: bams/1353_180508_Hp2G06.bam
+        1353_180508_Hp2H11: bams/1353_180508_Hp2H11.bam
+        1353P_200925A1: bams/1353P_200925A1.bam
+        1353P_200925E1: bams/1353P_200925E1.bam
+        1353P_200925E2: bams/1353P_200925E2.bam
+        1353P_200925E3: bams/1353P_200925E3.bam
     bulk:
-        936-hrt-1b1_20170221-WGS: bams/936-hrt-1b1_20170221-WGS.bam
-CON1901106:
+        MA1353_bulk_vessel: bams/MA1353_bulk_vessel.bam
+'MADRC1456':
     single_cell:
-        11901106_Gy_C1: bams/11901106_Gy_C1.bam
-        11901106_Gy_C2: bams/11901106_Gy_C2.bam
+        1456_180403_Hp1D06: bams/1456_180403_Hp1D06.bam
+        1456_180403_Hp1D12: bams/1456_180403_Hp1D12.bam
+        1456_180403_Hp1E10: bams/1456_180403_Hp1E10.bam
+        1456_180403_Hp1G11: bams/1456_180403_Hp1G11.bam
+        1456_180403_Hp2G08: bams/1456_180403_Hp2G08.bam
+        1456_180508_Pp2B03: bams/1456_180508_Pp2B03.bam
+        1456_180508_Pp2B10: bams/1456_180508_Pp2B10.bam
+        1456_180508_Pp2D03: bams/1456_180508_Pp2D03.bam
+        1456_180508_Pp2D11: bams/1456_180508_Pp2D11.bam
+        1456_180508_Pp2E04: bams/1456_180508_Pp2E04.bam
+        ALZ1456BA9-A: bams/ALZ1456BA9-A.bam
+        ALZ1456BA9-B: bams/ALZ1456BA9-B.bam
+        ALZ1456BA9-C: bams/ALZ1456BA9-C.bam
+        ALZ1456BA9-D: bams/ALZ1456BA9-D.bam
     bulk:
-        CON1901106_bulk: bams/CON1901106_bulk.bam
-CON301159:
+        MA1456_bulk_vessel: bams/MA1456_bulk_vessel.bam
+'MADRC1647':
     single_cell:
-        301159_Gyrus_D1: bams/301159_Gyrus_D1.bam
-        301159_Gyrus_D3: bams/301159_Gyrus_D3.bam
+        1647-181116-Hp3C03: bams/1647-181116-Hp3C03.bam
+        1647-181116-Hp3C11: bams/1647-181116-Hp3C11.bam
+        1647-181116-Hp3E10: bams/1647-181116-Hp3E10.bam
+        1647-181116-Hp3G08: bams/1647-181116-Hp3G08.bam
+        1647-181116-Hp3H06: bams/1647-181116-Hp3H06.bam
+        1647-190108-Pp3B09: bams/1647-190108-Pp3B09.bam
+        1647-190108-Pp3B10: bams/1647-190108-Pp3B10.bam
+        1647-190108-Pp3C11: bams/1647-190108-Pp3C11.bam
+        1647_180713_P2B05: bams/1647_180713_P2B05.bam
+        1647_180713_P2D11: bams/1647_180713_P2D11.bam
+        1647_180713_P2G01: bams/1647_180713_P2G01.bam
+        MA1647_p1B05: bams/MA1647_p1B05.bam
+        MA1647_p1B06: bams/MA1647_p1B06.bam
+        MA1647_p1C05: bams/MA1647_p1C05.bam
+        MA1647_p1E05: bams/MA1647_p1E05.bam
+        MA1647_p1H05: bams/MA1647_p1H05.bam
+        1647P_201001A5: bams/1647P_201001A5.bam
+        1647P_201001A6: bams/1647P_201001A6.bam
+        ALZ1647BA9-A: bams/ALZ1647BA9-A.bam
+        ALZ1647BA9-B: bams/ALZ1647BA9-B.bam
+        ALZ1647BA9-C: bams/ALZ1647BA9-C.bam
+        ALZ1647BA9-D: bams/ALZ1647BA9-D.bam
     bulk:
-        CON301159_bulk: bams/CON301159_bulk.bam
-UMB4976:
+        MA1647: bams/MA1647.bam
+'MADRC1828':
     single_cell:
+        1828-181116-Hp2B07: bams/1828-181116-Hp2B07.bam
+        1828-181116-Hp2C09: bams/1828-181116-Hp2C09.bam
+        1828-181116-Hp2D07: bams/1828-181116-Hp2D07.bam
+        1828-181116-Hp2D09: bams/1828-181116-Hp2D09.bam
+        MA1828_p1A09: bams/MA1828_p1A09.bam
+        MA1828_p1C06: bams/MA1828_p1C06.bam
+        MA1828_p1D06: bams/MA1828_p1D06.bam
+        MA1828_p1F01: bams/MA1828_p1F01.bam
+        MA1828_p1F03: bams/MA1828_p1F03.bam
+        MA1828_p2F10: bams/MA1828_p2F10.bam
+        MA1828_p2G02: bams/MA1828_p2G02.bam
+        MA1828_p2G10: bams/MA1828_p2G10.bam
+        MA1828_p2H02: bams/MA1828_p2H02.bam
+        MA1828_p2H11: bams/MA1828_p2H11.bam
+        1828P_201001G1: bams/1828P_201001G1.bam
+        1828P_201001G2: bams/1828P_201001G2.bam
+        1828P_201001G6: bams/1828P_201001G6.bam
+        1828P_201001H1: bams/1828P_201001H1.bam
+    bulk:
+        MA1828: bams/MA1828.bam
+'MADRC1995':
+    single_cell:
+        1995-181114-Pp5E11: bams/1995-181114-Pp5E11.bam
+        1995-181114-Pp5G02: bams/1995-181114-Pp5G02.bam
+        1995-181114-Pp5H06: bams/1995-181114-Pp5H06.bam
+        1995-181114-Pp5H08: bams/1995-181114-Pp5H08.bam
+        1995_171201_Pp1G12: bams/1995_171201_Pp1G12.bam
+        1995_171201_Pp1H09: bams/1995_171201_Pp1H09.bam
+        1995_180413_Hp1A12: bams/1995_180413_Hp1A12.bam
+        1995_180413_Hp1B03: bams/1995_180413_Hp1B03.bam
+        1995_180601_Pp4D07: bams/1995_180601_Pp4D07.bam
+        1995_180601_Pp4G11: bams/1995_180601_Pp4G11.bam
+        1995_180604_Hp2A12: bams/1995_180604_Hp2A12.bam
+        1995_180604_Hp2G12: bams/1995_180604_Hp2G12.bam
+        1995P_201001E1: bams/1995P_201001E1.bam
+        1995P_201001E3: bams/1995P_201001E3.bam
+        1995P_201001E5: bams/1995P_201001E5.bam
+        1995P_201001E6: bams/1995P_201001E6.bam
+    bulk:
+        MA1995_bulk_vessel: bams/MA1995_bulk_vessel.bam
+'MADRC2208':
+    single_cell:
+        2208-181120-Hp1B01: bams/2208-181120-Hp1B01.bam
+        2208-181120-Hp1B02: bams/2208-181120-Hp1B02.bam
+        2208-181120-Hp1C12: bams/2208-181120-Hp1C12.bam
+        2208-181120-Hp1H04: bams/2208-181120-Hp1H04.bam
+        2208-181120-Hp1H05: bams/2208-181120-Hp1H05.bam
+        2208-181120-Pp1B05: bams/2208-181120-Pp1B05.bam
+        2208-181120-Pp1E01: bams/2208-181120-Pp1E01.bam
+        2208-181120-Pp1G03: bams/2208-181120-Pp1G03.bam
+        2208-181120-Pp1G04: bams/2208-181120-Pp1G04.bam
+        2208-181120-Pp1H10: bams/2208-181120-Pp1H10.bam
+        2208P_201001C2: bams/2208P_201001C2.bam
+        2208P_201001C3: bams/2208P_201001C3.bam
+        2208P_201001C4: bams/2208P_201001C4.bam
+        2208P_201001C6: bams/2208P_201001C6.bam
+    bulk:
+        2208-190613-ctxBA6: bams/2208-190613-ctxBA6.bam
+'MADRC4556':
+    single_cell:
+        4556_170602_H1B01: bams/4556_170602_H1B01.bam
+        4556_170602_P1A08: bams/4556_170602_P1A08.bam
+        4556_170602_P1F05: bams/4556_170602_P1F05.bam
+        4556_170602_P1F07: bams/4556_170602_P1F07.bam
+        4556_170626_H2A09: bams/4556_170626_H2A09.bam
+        4556_170626_H2F06: bams/4556_170626_H2F06.bam
+        4556_170626_H2G07: bams/4556_170626_H2G07.bam
+        4556_170626_H2G11: bams/4556_170626_H2G11.bam
+        4556_170626_P2E02: bams/4556_170626_P2E02.bam
+        4556_170626_P2F08: bams/4556_170626_P2F08.bam
+    bulk:
+        4556_bulk: bams/4556_bulk.bam
+'MADRC5222':
+    single_cell:
+        5222-181114-Pp3C03: bams/5222-181114-Pp3C03.bam
+        5222-181114-Pp3G05: bams/5222-181114-Pp3G05.bam
+        5222_180601_Pp2B04: bams/5222_180601_Pp2B04.bam
+        5222_180601_Pp2B12: bams/5222_180601_Pp2B12.bam
+        5222_180601_Pp2C01: bams/5222_180601_Pp2C01.bam
+        5222_180601_Pp2F05: bams/5222_180601_Pp2F05.bam
+        UMB5222_p1C06: bams/UMB5222_p1C06.bam
+        UMB5222_p1F08: bams/UMB5222_p1F08.bam
+        UMB5222_p1H04: bams/UMB5222_p1H04.bam
+        UMB5222_p1H07: bams/UMB5222_p1H07.bam
+        UMB5222_p2E10: bams/UMB5222_p2E10.bam
+    bulk:
+        UMB5222: bams/UMB5222.bam
+'UMB4976':
+    single_cell:
+        4976-190221-Hp1C04: bams/4976-190221-Hp1C04.bam
+        4976-190221-Hp1F11: bams/4976-190221-Hp1F11.bam
+        4976-190221-Hp1G08: bams/4976-190221-Hp1G08.bam
+        4976-190221-Hp2D06: bams/4976-190221-Hp2D06.bam
+        4976-190221-Hp2E09: bams/4976-190221-Hp2E09.bam
+        4976-190221-Pp1E11: bams/4976-190221-Pp1E11.bam
+        4976-190221-Pp2C05: bams/4976-190221-Pp2C05.bam
+        4976-190221-Pp2E06: bams/4976-190221-Pp2E06.bam
+        4976-190221-Pp2F02: bams/4976-190221-Pp2F02.bam
+        4976-190221-Pp2G03: bams/4976-190221-Pp2G03.bam
         UMB4976_E1: bams/UMB4976_E1.bam
         UMB4976_E2: bams/UMB4976_E2.bam
         UMB4976_E3: bams/UMB4976_E3.bam
     bulk:
         4976-190613-cer: bams/4976-190613-cer.bam
-UMB5451:
+'UMB5451':
     single_cell:
+        5451-190107-Hp1B10: bams/5451-190107-Hp1B10.bam
+        5451-190107-Hp1C11: bams/5451-190107-Hp1C11.bam
+        5451-190107-Hp1D05: bams/5451-190107-Hp1D05.bam
+        5451-190107-Hp1F11: bams/5451-190107-Hp1F11.bam
+        5451-190107-Hp1G10: bams/5451-190107-Hp1G10.bam
+        5451-190108-Pp1C03: bams/5451-190108-Pp1C03.bam
+        5451-190108-Pp1D01: bams/5451-190108-Pp1D01.bam
+        5451-190108-Pp1D10: bams/5451-190108-Pp1D10.bam
+        5451-190108-Pp1F05: bams/5451-190108-Pp1F05.bam
+        5451-190108-Pp1F09: bams/5451-190108-Pp1F09.bam
         UMB5451_B2: bams/UMB5451_B2.bam
         UMB5451_B3: bams/UMB5451_B3.bam
         UMB5451_B5: bams/UMB5451_B5.bam
+        5451-BA6-A: bams/5451-BA6-A.bam
+        5451-BA6-B: bams/5451-BA6-B.bam
+        5451-BA6-C: bams/5451-BA6-C.bam
     bulk:
         5451-190613-ctxBA4: bams/5451-190613-ctxBA4.bam
-UMB5572:
+'UMB5943':
+    single_cell:
+        5943-190107-Hp1A07: bams/5943-190107-Hp1A07.bam
+        5943-190107-Hp1C10: bams/5943-190107-Hp1C10.bam
+        5943-190107-Hp1C11: bams/5943-190107-Hp1C11.bam
+        5943-190107-Hp1D04: bams/5943-190107-Hp1D04.bam
+        5943-190107-Hp1D10: bams/5943-190107-Hp1D10.bam
+        5943-190108-Pp1A10: bams/5943-190108-Pp1A10.bam
+        5943-190108-Pp1B02: bams/5943-190108-Pp1B02.bam
+        5943-190108-Pp1C02: bams/5943-190108-Pp1C02.bam
+        5943-190108-Pp1E07: bams/5943-190108-Pp1E07.bam
+        5943-190108-Pp1F06: bams/5943-190108-Pp1F06.bam
+        UMB5943_C2: bams/UMB5943_C2.bam
+        UMB5943_C4: bams/UMB5943_C4.bam
+        UMB5943_C5: bams/UMB5943_C5.bam
+    bulk:
+        5943-190613-ctxBA4: bams/5943-190613-ctxBA4.bam
+'MADRC1653':
+    single_cell:
+        1653-2-18: bams/1653-2-18.bam
+        1653-2-19: bams/1653-2-19.bam
+        1653-2-34: bams/1653-2-34.bam
+        1653-2-36: bams/1653-2-36.bam
+        1653-2-4: bams/1653-2-4.bam
+        1653-2-41: bams/1653-2-41.bam
+        1653-2-44: bams/1653-2-44.bam
+        1653-2-7: bams/1653-2-7.bam
+        1653-2-8: bams/1653-2-8.bam
+        1653M-B11: bams/1653M-B11.bam
+        1653M-C7: bams/1653M-C7.bam
+        1653M-E8: bams/1653M-E8.bam
+        ALS1653BA9-A: bams/ALS1653BA9-A.bam
+        ALS1653BA9-B: bams/ALS1653BA9-B.bam
+        ALS1653BA9-C: bams/ALS1653BA9-C.bam
+        ALS1653BA9-D: bams/ALS1653BA9-D.bam
+    bulk:
+        1653bulk: bams/1653bulk.bam
+'MADRC1973':
+    single_cell:
+        1973F-A1: bams/1973F-A1.bam
+        1973F-C4: bams/1973F-C4.bam
+        1973F-G6: bams/1973F-G6.bam
+    bulk:
+        1973-Parietal-bulk: bams/1973-Parietal-bulk.bam
+'BU_UNITE_VA190106':
+    single_cell:
+        11901106_Gy_C1: bams/11901106_Gy_C1.bam
+        11901106_Gy_C2: bams/11901106_Gy_C2.bam
+    bulk:
+        CON1901106_bulk: bams/CON1901106_bulk.bam
+'BU_UNITE_VA301159':
+    single_cell:
+        301159_Gyrus_D1: bams/301159_Gyrus_D1.bam
+        301159_Gyrus_D3: bams/301159_Gyrus_D3.bam
+    bulk:
+        CON301159_bulk: bams/CON301159_bulk.bam
+'UMB5572':
     single_cell:
         UMB5572_D2: bams/UMB5572_D2.bam
         UMB5572_D3: bams/UMB5572_D3.bam
         UMB5572_D4: bams/UMB5572_D4.bam
     bulk:
         UMB5572_bulk: bams/UMB5572_bulk.bam
-UMB5666:
+'UMB5666':
     single_cell:
         UMB5666_F1: bams/UMB5666_F1.bam
         UMB5666_F2: bams/UMB5666_F2.bam
         UMB5666_F5: bams/UMB5666_F5.bam
     bulk:
         UMB5666_bulk: bams/UMB5666_bulk.bam
-UMB5943:
+'MADRC2207':
     single_cell:
-        UMB5943_C2: bams/UMB5943_C2.bam
-        UMB5943_C4: bams/UMB5943_C4.bam
-        UMB5943_C5: bams/UMB5943_C5.bam
+        MA2207_A2: bams/MA2207_A2.bam
+        MA2207_A3: bams/MA2207_A3.bam
+        MA2207_A5: bams/MA2207_A5.bam
     bulk:
-        5943-190613-ctxBA4: bams/5943-190613-ctxBA4.bam
+        MA2207_bulk: bams/MA2207_bulk.bam
+'MADRC2036':
+    single_cell:
+        2036BA6-A: bams/2036BA6-A.bam
+        2036BA6-B: bams/2036BA6-B.bam
+        2036BA6-C: bams/2036BA6-C.bam
+        2036BA6_NeuN_A: bams/2036BA6_NeuN_A.bam
+        2036BA6_NeuN_B: bams/2036BA6_NeuN_B.bam
+        2036BA6_NeuN_C: bams/2036BA6_NeuN_C.bam
+    bulk:
+        2036sc-bulk: bams/2036sc-bulk.bam
+'MADRC1844':
+    single_cell:
+        1844BA6-A: bams/1844BA6-A.bam
+        1844BA6-B: bams/1844BA6-B.bam
+        1844BA6-C: bams/1844BA6-C.bam
+        1844BA6_NeuN_A: bams/1844BA6_NeuN_A.bam
+        1844BA6_NeuN_B: bams/1844BA6_NeuN_B.bam
+        1844BA6_NeuN_C: bams/1844BA6_NeuN_C.bam
+    bulk:
+        1844bulk: bams/1844bulk.bam
+'MADRC1700':
+    single_cell:
+        1700BA6_NeuN_A: bams/1700BA6_NeuN_A.bam
+        1700BA6_NeuN_B: bams/1700BA6_NeuN_B.bam
+        1700BA6_NeuN_C: bams/1700BA6_NeuN_C.bam
+        1700BA6_TDP_A: bams/1700BA6_TDP_A.bam
+        1700BA6_TDP_B: bams/1700BA6_TDP_B.bam
+        1700BA6_TDP_C: bams/1700BA6_TDP_C.bam
+    bulk:
+        1700-CB: bams/1700-CB.bam
+'MADRC1300':
+    single_cell:
+        1300PFC_NeuN_A: bams/1300PFC_NeuN_A.bam
+        1300PFC_NeuN_B: bams/1300PFC_NeuN_B.bam
+        1300PFC_NeuN_C: bams/1300PFC_NeuN_C.bam
+        1300PFC_TDP_A: bams/1300PFC_TDP_A.bam
+        1300PFC_TDP_B: bams/1300PFC_TDP_B.bam
+        1300PFC_TDP_C: bams/1300PFC_TDP_C.bam
+    bulk:
+        1300-CB: bams/1300-CB.bam
+'MADRC1334':
+    single_cell:
+        1334PFC_NeuN_A: bams/1334PFC_NeuN_A.bam
+        1334PFC_NeuN_B: bams/1334PFC_NeuN_B.bam
+        1334PFC_NeuN_C: bams/1334PFC_NeuN_C.bam
+        1334PFC_TDP_A: bams/1334PFC_TDP_A.bam
+        1334PFC_TDP_B: bams/1334PFC_TDP_B.bam
+        1334PFC_TDP_C: bams/1334PFC_TDP_C.bam
+    bulk:
+        1334-CB: bams/1334-CB.bam
+'MADRC1792':
+    single_cell:
+        1792PFC_NeuN_A: bams/1792PFC_NeuN_A.bam
+        1792PFC_NeuN_B: bams/1792PFC_NeuN_B.bam
+        1792PFC_NeuN_C: bams/1792PFC_NeuN_C.bam
+        1792PFC_TDP_A: bams/1792PFC_TDP_A.bam
+        1792PFC_TDP_B: bams/1792PFC_TDP_B.bam
+        1792PFC_TDP_C: bams/1792PFC_TDP_C.bam
+    bulk:
+        1792-CB: bams/1792-CB.bam
+'UMB6004':
+    single_cell:
+        6004PFC_N_A: bams/6004PFC_N_A.bam
+        6004PFC_N_B: bams/6004PFC_N_B.bam
+        6004PFC_N_C: bams/6004PFC_N_C.bam
+        6004PFC_T_A: bams/6004PFC_T_A.bam
+        6004PFC_T_B: bams/6004PFC_T_B.bam
+        6004PFC_T_C: bams/6004PFC_T_C.bam
+    bulk:
+        6004_bulk_CB: bams/6004_bulk_CB.bam
+'HBTRCS08631':
+    single_cell:
+        S08631PFC_N_A: bams/S08631PFC_N_A.bam
+        S08631PFC_N_B: bams/S08631PFC_N_B.bam
+        S08631PFC_N_C: bams/S08631PFC_N_C.bam
+        S08631PFC_T_A: bams/S08631PFC_T_A.bam
+        S08631PFC_T_B: bams/S08631PFC_T_B.bam
+        S08631PFC_T_C: bams/S08631PFC_T_C.bam
+    bulk:
+        S08631_bulk_CB: bams/S08631_bulk_CB.bam
+'HBTRCS13034':
+    single_cell:
+        S13034PFC_N_A: bams/S13034PFC_N_A.bam
+        S13034PFC_N_B: bams/S13034PFC_N_B.bam
+        S13034PFC_N_C: bams/S13034PFC_N_C.bam
+        S13034PFC_T_A: bams/S13034PFC_T_A.bam
+        S13034PFC_T_B: bams/S13034PFC_T_B.bam
+        S13034PFC_T_C: bams/S13034PFC_T_C.bam
+    bulk:
+        S13034_bulk_CB: bams/S13034_bulk_CB.bam
