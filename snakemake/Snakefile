@@ -14,6 +14,14 @@ import pandas as pd
 config['metadata'] = pd.read_csv('metadata/immutable_metadata.csv')
 meta = config['metadata']  # Just for convenience within this Snakefile
 
+
+# Never directly use donor_metadata - always go through config[donor_X]
+# to enable data passing between modules.
+donor_metadata = pd.read_csv('metadata/immutable_donor_metadata.csv')
+config['donor_sex'] = dict(zip(list(donor_metadata['donor']), list(donor_metadata['sex'])))
+config['donor_age'] = dict(zip(list(donor_metadata['donor']), list(donor_metadata['age'])))
+config['donor_phenotype'] = dict(zip(list(donor_metadata['donor']), list(donor_metadata['phenotype'])))
+
 # Autosomes only
 config['chrs_to_analyze'] = [ str(x) for x in range(1, 23) ]
 
@@ -518,10 +526,10 @@ rule scan2_objects:
         expand('scan2/{size}_objects/{sample}.rda',
             size=[ 'full', 'tiny' ], sample=config['all_single_cells'])
 
-rule chrx:
-    input:
-        expand("chrX/{donor}/mmq60.tab.{ext}",
-            donor=bams.keys(), ext=[ 'gz', 'gz.tbi' ])
+#rule chrx:
+    #input:
+        #expand("chrX/{donor}/mmq60.tab.{ext}",
+            #donor=bams.keys(), ext=[ 'gz', 'gz.tbi' ])
 
 rule scan2_metrics:
     input:
@@ -547,6 +555,7 @@ rule mapd:
         expand("mapd/{sample}.mapd.txt", sample=config['all_samples'])
 
 
+'''
 # Same as above for SCAN2 output
 def ginkgo_unpack_donors_and_samples(bams):
     ret = []
@@ -565,6 +574,7 @@ rule ginkgo:
         data=expand('ginkgo/{donor}/{table}',
             donor=bams.keys(),
             table=[ 'data', 'CNV1', 'CNV2', 'SegBreaks', 'SegCopy', 'SegFixed', 'SegNorm', 'SegStats'])
+'''
 
 
 rule alignability:
@@ -786,11 +796,11 @@ include: "snakefile.data"
 include: "snakefile.scan2"
 include: "snakefile.scan2_per_donor"
 include: "snakefile.scan2_rescue_groups"
-include: "snakefile.sentieon_for_chrX"
+#include: "snakefile.sentieon_for_chrX"
 include: "snakefile.mapd"
 include: "snakefile.suppfig_qual"
-include: "snakefile.ginkgo"
-include: "snakefile.ginkgo_per_donor"
+#include: "snakefile.ginkgo"
+#include: "snakefile.ginkgo_per_donor"
 include: "snakefile.aging_rates"
 include: "snakefile.mutsigs"
 include: "snakefile.shared_mutations"
@@ -1051,7 +1061,7 @@ rule misc:
 rule all:
     input:
         rules.misc.input,
-        rules.ginkgo.input,
+        #rules.ginkgo.input,
         rules.mapd.input,
         rules.scan2_metrics.input,
         #rules.response.input,
