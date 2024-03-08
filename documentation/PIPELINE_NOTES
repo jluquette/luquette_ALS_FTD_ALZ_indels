@@ -1,0 +1,337 @@
+TODO
+3. update snakefile.scan2 (or something) to install r-mutenrich
+    -> build r-mutenrich and upload to conda??
+4. add autogenerator script for snakefile.scan2_rescue_groups
+5. install SCAN2 correctly
+    -> i think this just means sigprofilermatrixgenerator
+    -> again, hard to automate this because the output files are in a library somewhere
+6. install r-mutenrich
+    1. download R tarball
+    2. untar/zip
+    3. cd r-mutenrich
+    4. R CMD INSTALL --build .
+
+
+Step 0. Install prereqs
+=======================
+0. micromamba is required to install the environment to run this pipeline. conda will
+   likely not be usable because it takes too long (days) to simply solve the dependency
+   graph.
+   To install micromamba, follow https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html#windows
+   At the time of writing (Dec. 31 2023), installation on O2 was:
+        curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+        mkdir micromamba
+        mv -n bin micromamba
+        eval "$(./micromamba/bin/micromamba shell hook -s posix)"
+        # The above added micromamba/bin to $PATH
+        export MAMBA_ROOT_PREFIX=`realpath micromamba`
+        micromamba activate
+    There was no need to install anything into the micromamba environment (not even python).
+1. Step 0 should activate the micromamba "base" environment, adding (base) to your shell prompt.
+   Now install all relevant conda packages using the provided script:
+        ./sc_pipeline/install_conda_env.sh [name of your environment here]
+   After a minute or two, micromamba will present you with a installation plan, to which
+   you must answer "Y" to continue. It should take ~5-10 minutes to download packages and
+   install them.
+2. Activate the environment: micromamba activate [name of your environment here]
+     -> To test, run R and try to import the SCAN2 library:
+     $ R
+     > library(scan2)
+    Loading required package: data.table
+    data.table 1.14.10 using 1 threads (see ?getDTthreads).  Latest news: r-datatable.com
+    Loading required package: GenomicRanges
+    Loading required package: stats4
+    Loading required package: BiocGenerics
+    ...
+3. Install SCAN2 dependencies
+    TODO: add these steps to the scan2_install rule? why not?
+    -> some are hard to check. e.g., sigprofilermatrixgenerator installed files
+
+4. If using sentieon for GATK steps, must add these environment variables and put sentieon
+   on $PATH:
+        export SENTIEON_LICENSE=license.rc.hms.harvard.edu:8990
+        export SENTIEON_INSTALL_DIR=/n/data1/hms/dbmi/park/SOFTWARE/Sentieon/sentieon-genomics-202112.06
+        export PATH=$PATH:/n/data1/hms/dbmi/park/SOFTWARE/Sentieon/sentieon-genomics-202112.06/bin
+    >>>>>>>>>>>> YOU MUST ALWAYS RUN THESE 3 LINES BEFORE RUNNING THE PIPELINE <<<<<<<<<<<<<<<<<<<<<<<
+5. Copy over single nucleus RNA-seq objects. These objects are used to build the scrnaseq
+   transcription tracks for enrichment. Eventually, they should be available for public
+   download. For now, contact lovelace_luquette@hms.harvard.edu to get them. Copy them into
+   the scrnaseq directory:
+        cp -n /path/to/scrnaseq/objects.rds scrnaseq/
+[UPDATE ME-------------------------------------------------------------------------
+6. Create sample_metadata.csv.
+    -> This file should contain data like age and sample-specific colors. It is not
+       used until post-SCAN2 analysis, however, the pipeline will fail if the file
+       does not exist. You can simply create an empty file for now via
+            touch metadata/sample_metadata.csv
+ UPDATE ME-------------------------------------------------------------------------]
+
+
+Step 1. Build the SCAN2 cross-sample panel
+==========================================
+0. Download the pipeline and cd into the directed created by git clone:
+    * git clone git@github.com:parklab/sc_pipeline.git
+    * cd sc_pipeline
+1. Edit metadata/immutable_metadata.csv to include all relevant samples/subjects.
+    * immutable_metadata.csv contains some data columns that *should not* be there,
+      such as plotting color. These will be removed in the future. For now, use
+      filler values for batch, outlier, plotage, color.
+        -> UPDATE: deleted age, batch, color, plotage, outlier
+    * These columns shouldn't be in immutable_metadata.csv because immutable_metadata.csv
+      is an input file to the earliest steps in the pipeline (like scan2 makepanel),
+      which means that updating immutable_metadata.csv will rerun the entire pipeline
+      from scratch. This is obviously not a reasonable thing to do to, e.g., change
+      the color of a sample.
+    * DISCUSSION: what should be in immutable_metadata.csv? Everything necessary for
+      running SCAN2:
+        -> make_panel: donor, sample, amp (only bulk vs. non-bulk status is relevant).
+        -> call_mutations: donor, sample, amp (currently recognized: bulk, MDA, PTA), sex.
+        SHOULD NOT be in immutable_metadata.csv:
+        -> age
+        -> scan2 rescue metadata: metadata needed to group cells for signature-based rescue.
+           SCAN2 signature rescue must be performed on groups of cells that have
+           similar true mutation signatures. Sometimes this is simply assumed, sometimes
+           it should be shown. Metdata necessary for grouping cells may require more
+           than one metadata column: Examples: MDA oligos vs PTA oligos, TDP+ neurons
+           vs. TDP- neurons, ALS/FTD/AD status vs. neurotypical, etc.
+    * TODO: add project-specific metadata in a separate file
+2. Create and populate bams/ subdirectory.
+    * Don't forget bulk BAMs!
+    * Files in bams/ must be named bams/{sample_ID}.bam
+        -> Symlinks are OK, no need to copy BAM files.
+        -> Each BAM must have a matching bams/{sample_ID}.bai index
+        -> The {sample_ID}.bam name scheme must:
+            a. Match the SM: tag in the BAM (e.g., samtools samples <bam>)
+            b. Match a sample ID provided in metadata/immutable_metadata.csv. 
+        -> Because symlinks can be used, I recommend creating immutable_metadata.csv
+           using the sample names recorded in the BAMs (samtools samples <bam>) first,
+           then add a column with the full path (e.g., via realpath <bam>) to the BAM
+           for each sample. Given this table, it is easy to create symlinks in bams
+           named bams/{sample_ID}.bam{,bai} pointing to the real BAMs, which can be
+           named anything.
+    * Sentieon does not allow for repeated read groups (RG tags) across BAMs. GATK does
+      not seem to mind this. Although some googling might suggest that Sentieon has an
+      option to remap RG tags, it actually is not available for --algo Haplotyper.
+        -> The script `bam_reheaders/uniquify_bam_rg.sh` will create a copy of an input
+           BAM with a single header group made unique by the name of the sample found in
+           the BAM.
+        -> Finding all of the BAMs with duplicate RGs is a manual job. I use a script
+           like the following to create a table of all RGs and in which BAMs they occur.
+                cat list_of_bams.txt | while read bam; do
+                    samtools view -H $bam \
+                        | grep '^@RG' \
+                        | while read line; do \
+                            echo $bam $(echo $line|cut -f2 -d\ ) \
+                          done; \
+                    done > rg_tags_per_bam.txt 
+           I then analyze this table in R to find duplicate RGs, create a list of BAMs
+           that that have >=1 duplicated RG, then run uniquify_bam_rg.sh on each such BAM.
+        -> This can be a really big deal. For the 620-BAM ALS-FTD analysis, 254 BAMs
+           contained RGs that were duplicated. Reheadering all 254 BAMs required 52T of disk.
+           (These BAMs can be safely deleted after running the pipeline. It only takes ~5 hours
+            to uniquify a BAM.)
+    * create metadata/bams.yaml
+        -> Given an immutable_metadata.csv file as above, this can be autogenerated with
+           the script metadata/make_bams_yaml.R. Otherwise, create a file by hand matching
+           the format in metadata/bams.yaml.
+        -> NOTE: if a sample has >1 bulk BAMs, the first listed bulk BAM will be used as
+           SCAN2's "matched" bulk. The other will be included in GATK and might be useful
+           for downstream analysis.
+3. Update snakemake/snakefile.scan2 rules to use the most recent SCAN2 and r-scan2
+   package versions:
+    * rule download_specific_scan2_rpkg_version: params: commit_id
+        -> This might be unnecessary for panel building?
+    * rule download_specific_scan2_version: params: commit_id
+4. Populate resources/ subdirectory with necessary files for GATK/Sentieon run.
+    * Many resources will be automatically downloaded (like the hg19+decoy reference). The following
+      dbsnp is old and is no longer hosted. If anyone has time to automate, dbsnp147 can be derived
+      from the current dbsnp because each line is annotated with the version in which it was introduced.
+      So simply filtering the current dbsnp for version <= 147 and retaining only COMMON variants--this
+      is critical--should yield the dbsnp below.
+    * resources/dbsnp_147_b37_common_all_20160601.vcf
+        There are several related files necessary for dbsnp usage:
+        DEFINITELY NEEDED:
+        -> resources/dbsnp_147_b37_common_all_20160601.vcf.idx
+        NOT SURE:
+        -> resources/dbsnp_147_b37_common_all_20160601.vcf.gz
+        -> resources/dbsnp_147_b37_common_all_20160601.vcf.gz.tbi
+    * Update GATK and panel regions if necessary. Larger datasets should use larger region lists (=
+      smaller intervals) to allow individual jobs to finish in reasonable time (~mean 3-6 hours per job).
+      Two different interval lists (of interest) are used:
+        -> resources/scan2_gatk_regions_1167windows_2500000_no_bad_chunk.txt
+           These intervals are used for running GATK on all cells/bulks from a single donor.
+           This interval list can be fairly coarse.
+        -> resources/scan2_panel_regions_30970_windows_100kb.chr2_1kb_window_removed.autosome_only.txt
+           These intervals are used for panel construction. Panel construction runs GATK jointly
+           across the entire set of BAMs for the project, which is often >10x larger than the number
+           of BAMs for any single donor. As such, the intervals should be smaller (=larger list).
+        -> resources/chrX_noPARs_gatk_regions_153windows_1000000.txt
+           This is for chrX analysis (which is useful for males), which is run on all BAMs from an
+           individual. It is unlikely that the user needs to change this.
+5. Define groups for SCAN2 rescue. These groups, which determine which cells are combined to
+   define the signature of true mutations, cannot be changed later. This will cause SCAN2 to
+   produce, per group:
+        1. A table of VAF-based+signature-based rescue calls (both snvs and indels) for all
+           cells in the group. The table remembers which calls were VAF-based or rescue-based
+           via columns pass (TRUE if VAF-based) and rescue (TRUE if called by signature-based rescue).
+                scan2/rescue_{group_name}/rescued_muts.txt
+        2. A file describing how well each cell in the group matches the group-wide average
+           signature. This is useful for determining whether the cells grouped together truly
+           share the same signature. 
+                scan2/
+6. Generate snakefiles. There are two files that need to be autogenerated based on the number of
+   donors and samples. Do:
+        cd snakemake
+        mv -n snakefile.scan2_per_donor OLDsnakefile.scan2_per_donor 
+        ./autogenerate_snakefile.scan2_per_donor.sh
+        mv -n snakefile.ginkgo_per_donor OLDsnakefile.ginkgo_per_donor 
+        ./autogenerate_snakefile.ginkgo_per_donor.sh
+    The snakefiles snakefile.{scan2,ginkgo}_per_donor provided with the pipeline are only useful
+    examples of the structure for these rules. You can safely delete them rather than renaming them
+    to OLD*.
+7. Configure the SCAN2 makepanel run. The run.sh script is a convenience
+   wrapper script to snakemake that allows for running small jobs locally, tests, dry runs, and
+   submitting to O2.
+        a. Edit run.sh and change the slurm_{partition,account} variables to match the SLURM config
+           of your cluster. If not using SLURM, edit the end of run.sh (the snakemake call with --slurm)
+           to use a different snakemake cluster option like `--cluster`. You will need to read the
+           snakemake docs to determine how to properly use `--cluster` on your system.
+        b. Ensure that Sentieon is on $PATH and its environment variables are defined. See the prereqs
+           section.
+        c. Ask snakemake to tell you what jobs *would* be run (a "dry" run) before doing a real run.
+           This can be accomplished by ./run.sh dry followed by the final rule name to run, which in
+           this case is scan2_panel_setup. At time of writing, 7 jobs are run to download SCAN2 and
+           some additional resources and configure the `scan2 makepanel` run:
+                $ ./run.sh dry scan2_panel_setup
+                Building DAG of jobs...
+                Job stats:
+                job                                     count
+                ------------------------------------  -------
+                download_hs37d5                             1
+                download_shapeit_b37_refpanel               1
+                download_specific_scan2_rpkg_version        1
+                download_specific_scan2_version             1
+                scan2_cross_sample_panel_setup              1
+                scan2_panel_setup                           1
+                unpack_shapeit_b37_refpanel                 1
+                total                                       7
+        d. Really run the above jobs. This can be a long job depending on how long the downloads take.
+                $ ./run.sh cluster scan2_panel_setup
+           At time of writing, took ~20 minutes to download and unpack, so you may want to submit it
+           to the cluster (do not run both this command and the one above):
+                $ sbatch -o scan2_panel_setup.log ./run.sh cluster scan2_panel_setup
+8. Build the SCAN2 panel. Panel building can take a very long time (many hundred-thousand CPU hours).
+   Snakemake has a limit on how many jobs it will have submitted to SLURM at a time, controlled by
+   the `--joblimit` argument. There is a --joblimit (short form=-j) argument in run.sh (see below),
+   but that is NOT relevant for panel building.
+        elif [ "x$word" == "xcluster" ]; then
+            usecluster='true'
+            jobflag='-j=1000'
+            kgflag='--keep-going'
+   To set the maximum number of concurrent jobs for scan2 makepanel, you must edit
+   the `--joblimit` option in snakemake/snakefile.scan2: rule scan2_cross_sample_panel (see below):
+            shell:
+                """
+                {input.scan2_bin} -d scan2/panel/makepanel --snakefile {input.scan2_snakefile} \
+                    makepanel \
+                        --joblimit 1000 \
+                        --snakemake-args ' --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=5760' \
+                """
+   Ensure that your chosen limit:
+        a. makes good use of your cluster size
+        b. if necessary, is low enough that you can continue to do other work (i.e., it is not always
+           true that you want to utilize 100% of your cluster).
+   After adjusting your `--joblimit` (if necessary), run the panel building step via:
+        $ sbatch -o scan2_panel_run.log -t 480:00:00 --mem=4G ./run.sh cluster scan2_panel_run
+   In this case, the runtime is set to 20 days (480 hours) and the memory used by the controller script
+   (run.sh) is set to 4G. `scan2 makepanel` is itself a snakemake workflow, but snakemake variables
+   provided to run.sh are not propagated to `scan2 makepanel`, it uses its own internal values.
+   -> INCREASING MEMORY LIMITS TO INDIVIDUAL JOBS. For large panels (several hundreds of cells or
+      10s of thousands of intervals), it may be necessary to increase the memory allocated to
+      the head job for `scan2 makepanel` (despite the head job not performing any calculation, it
+      needs to construct the graph of jobs and job dependencies, which may require more RAM). This
+      is accomplished using snakemake resources. The rule that runs `scan2 makepanel` is
+      `snakemake/snakefile.scan2:scan2_cross_sample_panel` and it is given 4G of RAM by default:
+            rule scan2_cross_sample_panel:
+                input:
+                ...
+                resources:
+                    mem_mb=4000
+       To override this, use snakemake's `--set-resources` option:
+            sbatch -o scan2_panel_run.log -t 480:00:00 --mem=4G ./run.sh cluster scan2_panel_run --set-resources scan2_cross_sample_panel:mem_mb=32000 scan2_cross_sample_panel:runtime=28800
+       This increases (for the head `scan2 makepanel` job, not the individual GATK jobs submitted
+       by that head job) the memory from the default 4Gb (=4000Mb) to 32Gb (=32000Mb) and the
+       runtime from the default 2880 minutes (which is not specified in the resources: line above) 
+       to 28800 minutes (=20 days). If done properly, the increase should be reflected in the
+       snakemake output for this job:
+            [Sun Dec 31 18:37:33 2023]
+            rule scan2_cross_sample_panel:
+                ...
+                resources: mem_mb=32000, mem_mib=9537, disk_mb=1000, disk_mib=954, tmpdir=<TBD>, slurm_account=park_contrib, slurm_partition=priopark, runtime=28800
+            
+            Job 1 has been submitted with SLURM jobid 28409249 (log: .snakemake/slurm_logs/rule_scan2_cross_sample_panel/28409249.log).
+       * 32G was the required amount for building a panel with ~600 BAMs and ~30,000 intervals.
+       * As the resource name "mem_mb" implies, the memory amount is in megabytes. Do not use
+         human-readable strings like "4G" instead of "4000".
+       * Runtime is in minutes. Do not attempt hh:mm:ss strings.
+NOTE: Steps 7 and 8 do not need to be separate. Here they are separated for discussion.
+9. rerun step (8) as needed. Panel building is usually a very large task chunked into 10,000-
+   30,000 jobs and may take 2 weeks-1 month. It is almost certain that some jobs will fail due
+   to cluster errors (like SLURM errors, disk errors, etc.). If this happens, the snakemake
+   within SCAN2 (not this pipeline) may need to be unlocked. To unlock the cross sample panel
+   pipeline, do:
+        scan2 -d scan2/panel/makepanel --snakefile scan2/SCAN2_specific_commit/snakemake/Snakefile makepanel --snakemake-args ' --unlock'
+   The output should look something like:
+        Using Sentieon for HaplotypeCaller and GATK3 for other tools. Be sure to export SENTIEON_LICENSE.
+        Unlocking working directory.
+   Now the pipeline can be restarted as in step (8) above.
+
+
+RUN SCAN2
+=========
+1. Edit metadata/immutable_donor_metadata.csv to include all relevant samples/subjects.
+    * The critical entry in donor metadata is sex, which informs sex chromosome analysis.
+2. Run SCAN2 configure jobs for each donor:
+    * First do a dry run to ensure no panel creation jobs will be rerun.  Since panel
+      building is so compute intensive, it would be disastrous to accidentally rerun
+      anything:
+        ./run.sh dry scan2_setup
+    * Really run the setup:
+        ./run.sh cluster scan2_setup
+    This simply initializes, configures and validates each SCAN2 run.  It does not perform
+    any computation.
+3. Run SCAN2.
+    * Configure the number of concurrent SCAN2 jobs and jobs per SCAN2 job.
+        In large analyses (e.g., in one case we analyzed 43 donors), there will be many SCAN2
+        jobs that would compete with each other for resources.  There are two parameters to
+        help control this:
+            1. scan2jobs in run.sh
+                The maximum number of concurrent SCAN2 jobs is specified in run.sh:
+                    flags='-s=snakemake/Snakefile --dir=. --latency-wait=60 --resources localjob=1 scan2job=4 roadmap_download=10 encode_download=10 ucsc_download=10 --rerun-incomplete'
+            2. --joblimit in snakemake/snakefile.scan2:rule scan2_call_mutations
+                The maximum number of jobs submitted to the cluster, per SCAN2 job, is specified
+                in the rule scan2_call_mutations via the --joblimit parameter:
+                    """
+                    {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
+                        run \
+                            --joblimit 300 \
+            Balance these two parameters to match your cluster. Keep in mind that sometimes
+            the SCAN2 pipeline runs into job bottlenecks, where very few jobs can be submitted
+            in parallel. It is therefore advantageous to allow enough concurrent SCAN2 jobs
+            (via scan2jobs) to fill in these bottlenecks. A slight overcommitment (i.e.,
+            scan2jobs * joblimit > #cores in your system) will help reduce lost compute time
+            to these bottlenecks.
+    * Run SCAN2:
+        * If you are using Sentieon, ensure it is in your $PATH:
+            $ which sentieon
+            /n/data1/hms/dbmi/park/SOFTWARE/Sentieon/sentieon-genomics-202112.06/bin/sentieon
+        * Do a dry run to ensure no jobs other than scan2_call_mutations_XXX will be run:
+            ./run.sh dry scan2_call
+        * Submit the job to the cluster. As noted above for the panel building job, the SCAN2
+          jobs will likely take a very long time (especially if you have too much core
+          overcommitment, see the comments above about scan2jobs), so it is prudent to increase
+          the run time for the rule specifically, via --set-resources scan2_call_mutations:runtime.
+          As before, this time must be an integer in minutes; human readable strings like "10h" or
+          "10d" for hours and days are not recognized as of this writing and will fail.
+
+            sbatch -o scan2_call.log -t 480:00:00 --mem=4G ./run.sh cluster scan2_call  --set-resources scan2_call_mutations:runtime=28800
