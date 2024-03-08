@@ -17,3 +17,6 @@ tables/
 not_used_maybe_useful/
 old_but_still_useful/
 snpeff/
+metadata/bams.yaml
+metadata/immutable_donor_metadata.csv
+metadata/immutable_metadata.csv
