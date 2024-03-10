@@ -1062,7 +1062,7 @@ rule all:
     input:
         rules.misc.input,
         #rules.ginkgo.input,
-        rules.mapd.input,
+        #rules.mapd.input,
         rules.scan2_metrics.input,
         #rules.response.input,
         #rules.table1.input,
