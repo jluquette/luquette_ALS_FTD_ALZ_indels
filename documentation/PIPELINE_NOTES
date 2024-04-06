@@ -10,6 +10,9 @@ TODO
     2. untar/zip
     3. cd r-mutenrich
     4. R CMD INSTALL --build .
+7. At some point, tried to use --until and snakemake complained that snRNA_1465a.rds wasn't
+   present.  Ran the following:
+    cp -ran ../../glia/analysis/scrnaseq/snRNA_1465a.rds scrnaseq/
 
 
 Step 0. Install prereqs
