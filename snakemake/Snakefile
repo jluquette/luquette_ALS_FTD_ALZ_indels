@@ -22,8 +22,8 @@ config['donor_sex'] = dict(zip(list(donor_metadata['donor']), list(donor_metadat
 config['donor_age'] = dict(zip(list(donor_metadata['donor']), list(donor_metadata['age'])))
 config['donor_phenotype'] = dict(zip(list(donor_metadata['donor']), list(donor_metadata['phenotype'])))
 
-# Autosomes only
-config['chrs_to_analyze'] = [ str(x) for x in range(1, 23) ]
+# This only applies to building the alignability tiles
+config['chrs_for_alignability'] = [ str(x) for x in range(1, 23) ] + [ 'X', 'Y' ]
 
 # List of BAMs and bulk vs. single cell status. There is only one added
 # bit of data in this file that is not available from config['metadata']:
@@ -35,28 +35,29 @@ config['chrs_to_analyze'] = [ str(x) for x in range(1, 23) ]
 # assumed for immutable_metadata.csv as well.
 with open('metadata/bams.yaml') as yf:
     bams = yaml.load(yf, Loader=yaml.FullLoader)
-config['bams'] = bams
-
-# Multiple parsings of the `bams.yaml` list to create many necessary mappings
-# ----------------------------------------------------------------------------
-
 # `bams` is a dict mapping donor ID -> list(single cell bams, bulk bams, other bams), where
 # each of the elements in the above list are also dicts mapping sample ID -> bam path.
-# For convenience, flatten `bams` into just a list of file paths with no related metadata.
-config['all_samples'] = sum([ list(bams[k][bt].keys()) for k in bams.keys() for bt in bams[k].keys()  ], [])
+config['bams'] = bams
+
+
+config['all_samples'] = list(meta['sample'])
+config['panel_samples'] = list(meta[meta['include.in.panel'] == True]['sample'])
 
 # Just single cell samples
-config['all_single_cells'] = sum([ list(bams[k]['single_cell'].keys()) for k in bams.keys() ], [])
+config['all_single_cells'] = list(meta[(meta['amp'] != "bulk")]['sample'])
+config['scan2_single_cells'] = list(meta[(meta['analyze.with.scan2'] == True) & (meta['amp'] != "bulk")]['sample'])
 
 # Same as above, but instead of a flat list of sample names, flat list of BAM paths
+# final.bam in immutable_metadata.csv is not the link in bams.yaml
 config['all_bams'] = sum([ list(bams[k][bt].values()) for k in bams.keys() for bt in bams[k].keys()  ], [])
+config['panel_bams'] = [ bams[k][bt][s] for k in bams.keys() for bt in bams[k].keys() for s in bams[k][bt].keys() if s in config['panel_samples'] ]
 
-config['all_donors'] = list(bams.keys())
+config['all_donors'] = list(dict.fromkeys(list(meta['donor'])))
+config['scan2_donors'] = list(dict.fromkeys(list(meta[meta['analyze.with.scan2'] == True]['donor'])))
 
-config['sample_to_donor_map'] = dict((sample, donor) for donor in bams.keys() \
-    for sample in list(bams[donor]['single_cell'].keys()) + list(bams[donor]['bulk'].keys()) )
+config['sample_to_donor_map'] = dict(zip(list(meta['sample']), list(meta['sample'])))
 
-config['scan2_depth_matrices'] = dict((donor, "scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz") for donor in config['all_donors'])
+config['scan2_depth_matrices'] = dict((donor, "scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz") for donor in config['scan2_donors'])
 
 # XXX: update me when new group mechanism is finished
 config['generic_groups'] = []
@@ -73,7 +74,7 @@ config['synthetic_groups'] = []
 # finalizes the set of groups.
 config['scan2_rescue_groups'] = {
     'placeholder_changeme' : dict(
-        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/sensitivity/' + s + '/scan2_object.rda', s) for s in config['all_single_cells'] ]
+        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/sensitivity/' + s + '/scan2_object.rda', s) for s in config['scan2_single_cells'] ]
     )
 }
 config['scan2_rescue_groups_reverse'] = \
@@ -280,9 +281,9 @@ config['aging_groups_to_model'] = {
 }
 
 config['mutsig_groups_for_de_novo'] = {
-    'all': config['all_single_cells'],
-    'pta': list(meta[meta["amp"] == "PTA"]['sample']),
-    'mda': list(meta[meta["amp"] == "MDA"]['sample'])
+    'all': config['scan2_single_cells'],
+    'pta': list((meta[meta["amp"] == "PTA") & (meta['analyze.with.scan2'] == True)]['sample']),
+    'mda': list((meta[meta["amp"] == "MDA") & (meta['analyze.with.scan2'] == True)]['sample'])
 }
 
 config['mutsig_groups_for_signature_inclusion'] = [ 'pta_neuron', 'pta_oligo' ]
@@ -486,13 +487,14 @@ rule scan2_panel_run:
 
 rule scan2_setup:
     input:
-        expand("scan2/{donor}/scan2/scan.yaml", donor=bams.keys())
+        expand("scan2/{donor}/scan2/scan.yaml", donor=config['scan2_donors'])
 
 def scan2_unpack_donors_and_samples(bams):
     ret = []
-    for donor in bams.keys():
+    for donor in config['scan2_donors']:
         ret = ret + expand("scan2/{donor}/scan2/sensitivity/{sample}/scan2_object.rda",
-            donor=donor, sample=bams[donor]['single_cell'])
+            donor=donor,
+            sample=list(meta[(meta['donor'] == donor) & (meta['amp'] != 'bulk')]['sample']))
     return(ret)
 
 rule scan2_call:
@@ -524,19 +526,14 @@ rule scan2_permtool:
 rule scan2_objects:
     input:
         expand('scan2/{size}_objects/{sample}.rda',
-            size=[ 'full', 'tiny' ], sample=config['all_single_cells'])
-
-#rule chrx:
-    #input:
-        #expand("chrX/{donor}/mmq60.tab.{ext}",
-            #donor=bams.keys(), ext=[ 'gz', 'gz.tbi' ])
+            size=[ 'full', 'tiny' ], sample=config['scan2_single_cells'])
 
 rule scan2_metrics:
     input:
         "suppfigX/all_panels.pdf",
         "suppfigX/metrics.csv",
         expand('metrics/{sample}.{filetype}.txt',
-                sample=config['all_single_cells'],
+                sample=config['scan2_single_cells'],
                 filetype=[ 'metrics', 'depth' ])
 
 rule sigprofilerextractor:
@@ -550,32 +547,6 @@ rule sigprofilerextractor:
             de_novo_group=config['mutsig_groups_for_de_novo'].keys(),
             spectype=[ 'SBS96', 'ID83' ]),
             
-rule mapd:
-    input:
-        expand("mapd/{sample}.mapd.txt", sample=config['all_samples'])
-
-
-'''
-# Same as above for SCAN2 output
-def ginkgo_unpack_donors_and_samples(bams):
-    ret = []
-    for donor in bams.keys():
-        ret = ret + expand("ginkgo/{donor}/{sample}_{plottype}.jpeg",
-                donor=donor,
-                sample=list(bams[donor]['single_cell'].keys()) + list(bams[donor]['bulk'].keys()),
-                plottype=[ 'CN', 'GC', 'SoS', 'counts', 'dist', 'hist', 'lorenz' ])
-    return(ret)
-
-rule ginkgo:
-    input:
-        # These are all plots
-        ginkgo_unpack_donors_and_samples(bams),
-        # These are the tables used to construct plots in case raw data is useful
-        data=expand('ginkgo/{donor}/{table}',
-            donor=bams.keys(),
-            table=[ 'data', 'CNV1', 'CNV2', 'SegBreaks', 'SegCopy', 'SegFixed', 'SegNorm', 'SegStats'])
-'''
-
 
 rule alignability:
     input:
@@ -679,21 +650,21 @@ rule quantile_enrichment_sensitivity:
     input:
         expand('enrichment/sensitivity/quantile/{sample}_sensitivity.txt',
             #sample=config['all_pta_cells'])
-            sample=config['all_single_cells'])   # try adding MDA as well
+            sample=config['scan2_single_cells'])   # try adding MDA as well
 
 rule bed_enrichment_sensitivity:
     input:
         expand('enrichment/sensitivity/bed_regions/{sample}_sensitivity.{file}.txt',
-            sample=config['all_single_cells'],   # try adding MDA as well
+            sample=config['scan2_single_cells'],   # try adding MDA as well
             file=[ 'full', 'summary' ]),
         expand('enrichment/sensitivity/bed_regions/{sample}_depth.{file}.txt',
-            sample=config['all_single_cells'],   # try adding MDA as well
+            sample=config['scan2_single_cells'],   # try adding MDA as well
             file=[ 'full', 'summary' ])
 
 rule mb_tile_sensitivity:
     input:
         expand('enrichment/sensitivity/tiles_1000000binsize/{sample}.csv',
-            sample=config['all_single_cells']),
+            sample=config['scan2_single_cells']),
         expand('enrichment/sensitivity/tiles_1000000binsize/{group}.summary.txt',
             group=config['sensitivity_groups'])
             #group=[ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap' ])
@@ -782,7 +753,7 @@ rule response:
         "respfig2/pta_neuron_vs_pta_oligo.corrected.pdf",
         "respfig2/panel_h_chromhmm___snv.corrected.pdf",
         "respfig2/panel_i_nott_enhprom___snv.corrected.pdf",
-        expand("respfig3/{donor}.pdf", donor=config['all_donors']),
+        expand("respfig3/{donor}.pdf", donor=config['scan2_donors']),
         "respfig4/all_panels.pdf",
         "respfig6/panels_cdefg_enrichment_analyses_pta_neuron_vs_pta_oligo.corrected.pdf",
         "respfig6/quantile_scatter_plots.pdf",
@@ -796,11 +767,7 @@ include: "snakefile.data"
 include: "snakefile.scan2"
 include: "snakefile.scan2_per_donor"
 include: "snakefile.scan2_rescue_groups"
-#include: "snakefile.sentieon_for_chrX"
-include: "snakefile.mapd"
 include: "snakefile.suppfig_qual"
-#include: "snakefile.ginkgo"
-#include: "snakefile.ginkgo_per_donor"
 include: "snakefile.aging_rates"
 include: "snakefile.mutsigs"
 include: "snakefile.shared_mutations"
