@@ -20,7 +20,7 @@ rule tile_to_mask:
 rule tile_genome:
     input:
         rdas=expand("alignability/base_tile_size_tables/chr{chr}.rda",
-            chr=config['chrs_to_analyze']),
+            chr=config['chrs_for_alignability']),
         metadata="metadata/sample_metadata.csv"
     output:
         bed="alignability/genome_tiles/genome_tiles_{binsize}binsize.bed"
@@ -56,7 +56,7 @@ ruleorder: tile_genome_200bp_gather > tile_genome
 rule tile_genome_200bp_gather:
     input:
         expand("alignability/genome_tiles/genome_tiles_200binsize.chr{chr}.bed",
-            chr=config['chrs_to_analyze'])
+            chr=config['chrs_for_alignability'])
     output:
         "alignability/genome_tiles/genome_tiles_200binsize.bed"
     resources:
@@ -109,7 +109,7 @@ rule bulk_accessible:
 rule gather_bulk_accessible:
     input:
         txts=expand("alignability/bulk_accessible/chr{chrom}.txt",
-            chrom=config['chrs_to_analyze'])
+            chrom=config['chrs_for_alignability'])
     output:
         txt="alignability/bulk_accessible/all_chrs.txt"
     log:
