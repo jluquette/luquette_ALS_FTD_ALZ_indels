@@ -17,23 +17,24 @@ rule download_specific_scan2_rpkg_version:
         dir=directory('scan2/r-scan2_specific_commit')
     log:
     params:
-        commit_id="aafa87ddb4151ab06f41e6479185d638023c5e31"
-        # Real commit used is below. Contains several minor changes to the r-scan2
-        # library that are necessary for scripts in this project, but do not affect
-        # the SCAN2 mutation calling pipeline. Since the mutation caller is unaffected,
-        # it wouldn't make sense to rerun all calling to use the latest commit.
-        # commit_id="d3d22efe3bc42f5c898ce6a2480689cfcef4b4de"
+        commit_id="c0aef34f47ebe2fd35dc1d0eeee404b69508ce0c"
     localrule: True
     threads: 1
     resources:
         mem_mb=250,
         localjob=1
     shell:
+        # The git clone does not actually provide the r-scan2 package.  It merely
+        # imports the source at the correct commit ID as a reference.  The install_github
+        # call actually installs the R package directly from github.  The reason we use
+        # devtools' install_github() is to inject the commit ID into the installed R package's
+        # version data, enabling version tracking.
         """
+        rm -fr {output.dir}
         git clone https://github.com/parklab/r-scan2.git {output.dir}
         cd {output.dir}
         git checkout -q {params.commit_id}
-        R CMD INSTALL --build .
+        Rscript -e 'devtools::install_github("parklab/r-scan2@{params.commit_id}", upgrade="never")'
         """
 
 
@@ -45,12 +46,11 @@ rule download_specific_scan2_version:
         dir=directory('scan2/SCAN2_specific_commit'),
         scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
         scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
-        scan2_scripts=directory("scan2/SCAN2_specific_commit/scripts")
+        scan2_scripts=directory("scan2/SCAN2_specific_commit/scripts"),
+        scan2_resources=directory("scan2/SCAN2_specific_commit/resources")
     log:
     params:
-        #commit_id="fa1949a89c002ee8cc33bff86862aecf52e6000b"
-        #commit_id="4885394a976d95010be12013bef6b0e5cb0a1929"
-        commit_id="9fe032ba1d66816233345d9ff73956473b13af0c"
+        commit_id="ee9a6d491d10723c057d0be81d0741ca960fdee4"
     localrule: True
     threads: 1
     resources:
@@ -59,11 +59,19 @@ rule download_specific_scan2_version:
     shell:
         # rm: Snakemake creates empty directories to contain scan2 and Snakefile.
         # git-clone will not clone a repository into a non-empty directory.
+        # 
+        # bin/version.py - this file contains just a few variables that track the
+        # version of the SCAN2 external pipeline (i.e., not the R package).  The
+        # GIT_FULL_HASH inverse grep is to remove one templated line in the recipe
+        # (templating causes the file to not be a valid YAML format).
         """
         rm -fr {output.dir}
         git clone https://github.com/parklab/SCAN2.git {output.dir}
         cd {output.dir}
         git checkout -q {params.commit_id}
+        echo "version='$(cat recipes/scan2/meta.yaml | grep -v 'GIT_FULL_HASH' | shyaml get-value package.version)'" >> bin/version.py
+        echo "buildnum='$(cat recipes/scan2/meta.yaml | grep -v 'GIT_FULL_HASH' | shyaml get-value build.number)'" >> bin/version.py
+        echo "githash='{params.commit_id}'" >> bin/version.py
         """
 
 
@@ -134,15 +142,20 @@ rule scan2_cross_sample_panel_setup:
         scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
         scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
         scan2_scripts="scan2/SCAN2_specific_commit/scripts",
+        scan2_resources="scan2/SCAN2_specific_commit/resources",
         fasta='resources/human_g1k_v37_decoy.fasta',
         fai='resources/human_g1k_v37_decoy.fasta.fai',
         fadict='resources/human_g1k_v37_decoy.dict',
         shapeit_panel='resources/1000GP_Phase3',
         dbsnp='resources/dbsnp_147_b37_common_all_20160601.vcf',
+        # It's ok to give scan2 makepanel a superset of the actual metadata.
+        # I.e., we do not need to create a new metadata file with include.in.panel=FALSE 
+        # rows filtered out.
         panel_metadata='metadata/immutable_metadata.csv',
-        analyzable_regions='resources/scan2_panel_regions_chr1-22XY_30910_windows_100kb.3kb_unanalyzable_region_removed.txt',
-        bams=all_bams,
-        bais=[ bam.replace('.bam', '.bai') for bam in all_bams ]
+        analyzable_regions='resources/scan2_panel_regions_chr1-22XY_12373windows_250kb.3kb_unanalyzable_region_removed.txt',
+        # We do, however, have to not supply those BAMs.
+        bams=config['panel_bams'],
+        bais=[ bam.replace('.bam', '.bai') for bam in config['panel_bams'] ]
     output:
         yaml="scan2/panel/makepanel/scan.yaml"
     params:
@@ -166,6 +179,7 @@ rule scan2_cross_sample_panel_setup:
             --shapeit-refpanel $(realpath {input.shapeit_panel}) \
             --regions-file {input.analyzable_regions} \
             --scripts $(realpath {input.scan2_scripts}) \
+            --resources $(realpath {input.scan2_resources}) \
             --makepanel-metadata {input.panel_metadata} \
             {params.bam_flags}
         {input.scan2_bin} -d scan2/panel/makepanel --snakefile {input.scan2_snakefile} validate
@@ -192,9 +206,10 @@ rule scan2_cross_sample_panel:
         """
         {input.scan2_bin} -d scan2/panel/makepanel --snakefile {input.scan2_snakefile} \
             makepanel \
-                --joblimit 1000 \
-                --snakemake-args ' --notemp --restart-times=2 --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=5760' \
+                --joblimit 2000 \
+                --snakemake-args ' --notemp --keep-going --restart-times 2 --max-status-checks-per-second 0.5 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=priopark runtime=5760' \
         """
+        # --restart-times=2    # setting to 200G for the final few jobs
 
 
 rule scan2_call_mutations_setup:
@@ -202,6 +217,7 @@ rule scan2_call_mutations_setup:
         scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
         scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
         scan2_scripts="scan2/SCAN2_specific_commit/scripts",
+        scan2_resources="scan2/SCAN2_specific_commit/resources",
         fasta='resources/human_g1k_v37_decoy.fasta',
         fai='resources/human_g1k_v37_decoy.fasta.fai',
         fadict='resources/human_g1k_v37_decoy.dict',
@@ -241,8 +257,7 @@ rule scan2_call_mutations_setup:
             --shapeit-refpanel $(realpath {input.shapeit_panel}) \
             --regions-file {input.analysis_regions} \
             --scripts $(realpath {input.scan2_scripts}) \
-            --abmodel-n-cores 10 \
-            --sensitivity-n-cores 10 \
+            --resources $(realpath {input.scan2_resources}) \
             {params.sc_bam_flags} \
             {params.bulk_bam_flag} \
             --cross-sample-panel {input.cross_sample_panel}
@@ -277,7 +292,7 @@ rule scan2_call_mutations:
         {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
             run \
                 --joblimit 300 \
-                --snakemake-args ' --until gatk/hc_raw.mmq60.bcf gatk/hc_raw.mmq1.bcf --notemp --restart-times=2 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=2880' \
+                --snakemake-args ' --until gatk/hc_raw.mmq60.bcf gatk/hc_raw.mmq1.bcf --notemp --restart-times=2 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=priopark runtime=5000' \
         """
 
 
@@ -407,7 +422,7 @@ rule scan2_table_to_csv:
     params:
         qualtype='{qualtype}',
         filter='{filter}',
-        samples=config['all_samples']  # Don't filter by sample
+        samples=config['all_samples']  # Don't filter by sample. Also config['all_samples'] is a superset, so fairly meangingless
     threads: 1
     resources:
         mem_mb=1000
@@ -466,7 +481,7 @@ rule scan2_table_to_vcf:
     params:
         qualtype='{qualtype}',
         filter='{filter}',
-        samples=config['all_samples']  # Don't filter by sample
+        samples=config['all_samples']  # Don't filter by sample. Also config['all_samples'] is a superset, so fairly meangingless
     threads: 1
     resources:
         mem_mb=1000
