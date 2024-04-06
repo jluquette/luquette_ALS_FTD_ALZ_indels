@@ -78,7 +78,7 @@ rule suppfigX:
     input:
         metadata='metadata/sample_metadata.csv',
         bulk_accessible='alignability/bulk_accessible/all_chrs.txt',
-        metrics=expand('metrics/{sample}.metrics.txt', sample=config['all_single_cells'])
+        metrics=expand('metrics/{sample}.metrics.txt', sample=config['scan2_single_cells'])
     output:
         csv="suppfigX/metrics.csv",
         pdf="suppfigX/all_panels.pdf",

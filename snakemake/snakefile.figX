@@ -171,7 +171,7 @@ rule maybe_number_shared_snvs_panel:
     input:
         meta='metadata/sample_metadata.csv',
         csvs=expand('shared_mutations/sigprofilerextractor/{donor}.csv',
-            donor=config['all_donors'])
+            donor=config['scan2_donors'])
     output:
         pdf="figX/maybe_number_shared_snvs_panel.pdf"
     log:
