@@ -1,3 +1,4 @@
+snakemake/snakefile.scan2_per_donor
 scan2_output/full_objects/*.rda
 scan2_output/depth_profiles/*.tab.gz
 fig*/
