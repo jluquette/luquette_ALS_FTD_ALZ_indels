@@ -19,6 +19,9 @@ old_but_still_useful/
 snpeff/
 bams/*.bam
 bams/*.bai
-metadata/bams.yaml
-metadata/immutable_donor_metadata.csv
-metadata/immutable_metadata.csv
+metadata/bams.yaml*
+metadata/immutable_donor_metadata.csv*
+metadata/immutable_metadata.csv*
+snakemake/snakefile.scan2_per_donor
+resources/human_g1k_v37_decoy*
+resources/1000GP_Phase3/
