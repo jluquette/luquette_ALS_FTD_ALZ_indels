@@ -8,11 +8,18 @@ import itertools
 import yaml
 import pandas as pd
 
+config['donor_to_queue'] = {
+    'UMB1286': 'priopark',
+    'UMB1762': 'priopark',
+    'UMB580': 'short',
+    'UMB682': 'short'
+}
 
 # Important note on the `config' dictionary: consolidate all global variables so
 # they can be robustly passed to module calls.
 config['metadata'] = pd.read_csv('metadata/immutable_metadata.csv')
 meta = config['metadata']  # Just for convenience within this Snakefile
+config['sample_amp'] = dict(zip(list(meta['sample']), list(meta['amp'])))
 
 
 # Never directly use donor_metadata - always go through config[donor_X]
@@ -55,7 +62,10 @@ config['panel_bams'] = [ bams[k][bt][s] for k in bams.keys() for bt in bams[k].k
 config['all_donors'] = list(dict.fromkeys(list(meta['donor'])))
 config['scan2_donors'] = list(dict.fromkeys(list(meta[meta['analyze.with.scan2'] == True]['donor'])))
 
-config['sample_to_donor_map'] = dict(zip(list(meta['sample']), list(meta['sample'])))
+config['sample_to_donor_map'] = dict(zip(list(meta['sample']), list(meta['donor'])))
+config['donor_to_scan2_sample_map'] = dict(
+    (donor, list(meta[(meta['analyze.with.scan2'] == True) & (meta['donor'] == donor)]['sample']))
+        for donor in set(meta[meta['analyze.with.scan2'] == True]['donor']))
 
 config['scan2_depth_matrices'] = dict((donor, "scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz") for donor in config['scan2_donors'])
 
