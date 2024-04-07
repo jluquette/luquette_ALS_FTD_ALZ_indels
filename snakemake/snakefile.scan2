@@ -234,6 +234,7 @@ rule scan2_call_mutations_setup:
     params:
         dir=directory("scan2/{donor}/scan2"),
         donor_sex=lambda wildcards: 'male' if config['donor_sex'][wildcards.donor] == 'M' else ('female' if config['donor_sex'][wildcards.donor] == 'F' else 'unknown'),
+        sample_amp=lambda wildcards: ' '.join([ '--amplification ' + sample + ' ' + config['sample_amp'][sample] for sample in bams[wildcards.donor]['single_cell'].keys() ]), #config['donor_to_scan2_sample_map'][wildcards.donor] ]),
         sc_bam_flags=lambda wildcards, input: ' '.join([ '--sc-bam ' + bam for bam in input.sc_bams ]),
         bulk_bam_flag=lambda wildcards, input: '--bulk-bam ' + input.bulk_bams[0],
         other_bam_flags=lambda wildcards, input: ' '.join([ '--bam ' + bam for bam in input.bulk_bams[-0] ])
@@ -260,6 +261,7 @@ rule scan2_call_mutations_setup:
             --resources $(realpath {input.scan2_resources}) \
             {params.sc_bam_flags} \
             {params.bulk_bam_flag} \
+            {params.sample_amp} \
             --cross-sample-panel {input.cross_sample_panel}
         {input.scan2_bin} -d {params.dir} --snakefile {input.scan2_snakefile} validate
         """
@@ -275,6 +277,8 @@ rule scan2_call_mutations:
         dpmatrixidx=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz.tbi")
     params:
         scan2_output_dir="scan2/{donor}/scan2",
+        queue=lambda wildcards: config['donor_to_queue'][wildcards.donor],
+        account=lambda wildcards: 'park_contrib' if config['donor_to_queue'][wildcards.donor] == 'priopark' else 'park'
     log:
         'scan2/{donor}/scan2/log.txt'
     threads: 1
@@ -290,9 +294,9 @@ rule scan2_call_mutations:
         #   to rerun the pipeline without recomputing everything.
         """
         {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
-            run \
-                --joblimit 300 \
-                --snakemake-args ' --until gatk/hc_raw.mmq60.bcf gatk/hc_raw.mmq1.bcf --notemp --restart-times=2 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=priopark runtime=5000' \
+            call_mutations \
+                --joblimit 500 \
+                --snakemake-args ' --notemp --restart-times=0 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --slurm --default-resources slurm_account={params.account} slurm_partition={params.queue} runtime=720' \
         """
 
 
