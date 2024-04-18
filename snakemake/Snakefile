@@ -8,9 +8,18 @@ import itertools
 import yaml
 import pandas as pd
 
+# Creates a package name -> dict() map for each line.
+# dict() contains installed_commit_id and actual_commit_id
+# installed_commit_id is the parameter for snakefile.scan2 installation and reflects
+# the version at install time.  If a newer commit that does not change any
+# of the outputs of scan2 makepanel or call_mutations is used, update the actual_commit_id
+# line instead.  actual_commit_id DOES NOT CONTROL ANYTHING, IT IS ONLY FOR RECORD
+# KEEPING.
+config['scan2_version'] = pd.read_csv('metadata/scan2_version_tracking.csv').set_index('package').T.to_dict('dict')
+
 # Creates a donor ID -> dict() map for each line in scan2_resources.csv
 # The dict for each donor contains named SCAN2 resource values
-scan2_resources = pd.read_csv('metadata/scan2_resources.csv').set_index('donor').T.to_dict('dict')
+config['scan2_resources'] = pd.read_csv('metadata/scan2_resources.csv').set_index('donor').T.to_dict('dict')
 
 
 # Important note on the `config' dictionary: consolidate all global variables so
