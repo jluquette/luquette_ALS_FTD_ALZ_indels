@@ -8,8 +8,10 @@ import itertools
 import yaml
 import pandas as pd
 
-config['donor_to_queue'] = pd.read_csv('metadata/scan2_queue_assignments.csv')
-config['donor_to_queue'] = dict(zip(list(config['donor_to_queue']['donor']), list(config['donor_to_queue']['queue'])))
+# Creates a donor ID -> dict() map for each line in scan2_resources.csv
+# The dict for each donor contains named SCAN2 resource values
+scan2_resources = pd.read_csv('metadata/scan2_resources.csv').set_index('donor').T.to_dict('dict')
+
 
 # Important note on the `config' dictionary: consolidate all global variables so
 # they can be robustly passed to module calls.
