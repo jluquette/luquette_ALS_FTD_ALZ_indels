@@ -18,6 +18,8 @@ rule download_specific_scan2_rpkg_version:
     log:
     params:
         commit_id="c0aef34f47ebe2fd35dc1d0eeee404b69508ce0c"
+        # real commit is below.
+        #commit_id="a6d682c1bf49114b3cea6776f317f757973f41f1"
     localrule: True
     threads: 1
     resources:
@@ -51,6 +53,8 @@ rule download_specific_scan2_version:
     log:
     params:
         commit_id="ee9a6d491d10723c057d0be81d0741ca960fdee4"
+        # real commit is below
+        #commit_id="28254525d490ca6efceaece95723304f3aba22de"
     localrule: True
     threads: 1
     resources:
@@ -198,7 +202,17 @@ rule scan2_cross_sample_panel:
         'scan2/panel/makepanel/log.txt'
     threads: 1
     resources:
-        mem_mb=4000
+        mem_mb=4000,
+        scan2_queue=config['scan2_resources']['___INTERNAL___panel']['queue'],
+        scan2_account=config['scan2_resources']['___INTERNAL___panel']['account'],
+        scan2_runtime=config['scan2_resources']['___INTERNAL___panel']['runtime'],
+        scan2_restart_times=config['scan2_resources']['___INTERNAL___panel']['restart_times'],
+        scan2_joblimit=config['scan2_resources']['___INTERNAL___panel']['joblimit'],
+        # These cores are only used in the final job that digests all of the GATK output
+        scan2_panel_cores=10,
+        # a little annoying: when no args are specified, want this to be an empty string.
+        # when args are specified, add a space.
+        scan2_other_snakemake_args=lambda wildcards: '' if config['scan2_resources'][wildcards.donor]['other_snakemake'] == '' else ' ' + config['scan2_resources'][wildcards.donor]['other_snakemake_args'] 
     shell:
         # --notemp: the new scan2 rules that adds a dummy rule to create
         #   an argument file of VCFs (which are temped()) make it impossible
@@ -206,10 +220,10 @@ rule scan2_cross_sample_panel:
         """
         {input.scan2_bin} -d scan2/panel/makepanel --snakefile {input.scan2_snakefile} \
             makepanel \
-                --joblimit 2000 \
-                --snakemake-args ' --notemp --keep-going --restart-times 2 --max-status-checks-per-second 0.5 --max-jobs-per-second 1 --slurm --default-resources slurm_account=park_contrib slurm_partition=priopark runtime=5760' \
+                --n-cores {resources.scan2_panel_cores} \
+                --joblimit {resources.scan2_joblimit} \
+                --snakemake-args ' --keep-going --restart-times={resources.scan2_restart_times} --max-status-checks-per-second 0.5 --max-jobs-per-second 1 --default-resources slurm_account={resources.scan2_account} slurm_partition={resources.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
         """
-        # --restart-times=2    # setting to 200G for the final few jobs
 
 
 rule scan2_call_mutations_setup:
@@ -276,27 +290,38 @@ rule scan2_call_mutations:
         dpmatrix=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz"),
         dpmatrixidx=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz.tbi")
     params:
-        scan2_output_dir="scan2/{donor}/scan2",
-        queue=lambda wildcards: config['donor_to_queue'][wildcards.donor],
-        account=lambda wildcards: 'park_contrib' if config['donor_to_queue'][wildcards.donor] == 'priopark' else 'park'
+        scan2_output_dir="scan2/{donor}/scan2"
     log:
         'scan2/{donor}/scan2/log.txt'
     threads: 1
     resources:
         mem_mb=4000,
-        scan2jobs=1
+        scan2jobs=1,
+        # Try encoding SCAN2 resources as resources in this rule rather than
+        # parameters.  Changing a parameter will cause Snakemake to rerun jobs
+        # but perhaps changing a resource won't.  This might not work, though,
+        # because it will change the shell command, but is worth a try.
+        scan2_queue=lambda wildcards: config['scan2_resources'][wildcards.donor]['queue'],
+        scan2_account=lambda wildcards: config['scan2_resources'][wildcards.donor]['account'],
+        scan2_runtime=lambda wildcards: config['scan2_resources'][wildcards.donor]['runtime'],
+        scan2_abests_and_mutmodels_n_cores=lambda wildcards: config['scan2_resources'][wildcards.donor]['abests_and_mutmodels_n_cores'],
+        scan2_ab_covariates_n_cores=lambda wildcards: config['scan2_resources'][wildcards.donor]['ab_covariates_n_cores'],
+        scan2_restart_times=lambda wildcards: config['scan2_resources'][wildcards.donor]['restart_times'],
+        scan2_joblimit=lambda wildcards: config['scan2_resources'][wildcards.donor]['joblimit'],
+        # a little annoying: when no args are specified, want this to be an empty string.
+        # when args are specified, add a space.
+        scan2_other_snakemake_args=lambda wildcards: '' if config['scan2_resources'][wildcards.donor]['other_snakemake'] == '' else ' ' + config['scan2_resources'][wildcards.donor]['other_snakemake_args'] 
     shell:
-        # Very intentionally not putting --snakemake-args as Snakemake params.
-        # Changing these do not change results, but Snakemake will rerun jobs
-        # if the params change.
         # --notemp: the new scan2 rules that adds a dummy rule to create
         #   an argument file of VCFs (which are temped()) make it impossible
         #   to rerun the pipeline without recomputing everything.
         """
         {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
             call_mutations \
-                --joblimit 500 \
-                --snakemake-args ' --notemp --restart-times=0 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --slurm --default-resources slurm_account={params.account} slurm_partition={params.queue} runtime=720' \
+                --joblimit {resources.scan2_joblimit} \
+                --abests-and-mutmodels-n-cores={resources.scan2_abests_and_mutmodels_n_cores} \
+                --ab-covariates-n-cores={resources.scan2_ab_covariates_n_cores} \
+                --snakemake-args ' --restart-times={resources.scan2_restart_times} --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --default-resources slurm_account={params.scan2_account} slurm_partition={params.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
         """
 
 
