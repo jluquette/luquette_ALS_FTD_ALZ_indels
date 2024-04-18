@@ -8,12 +8,8 @@ import itertools
 import yaml
 import pandas as pd
 
-config['donor_to_queue'] = {
-    'UMB1286': 'priopark',
-    'UMB1762': 'priopark',
-    'UMB580': 'short',
-    'UMB682': 'short'
-}
+config['donor_to_queue'] = pd.read_csv('metadata/scan2_queue_assignments.csv')
+config['donor_to_queue'] = dict(zip(list(config['donor_to_queue']['donor']), list(config['donor_to_queue']['queue'])))
 
 # Important note on the `config' dictionary: consolidate all global variables so
 # they can be robustly passed to module calls.
@@ -84,7 +80,7 @@ config['synthetic_groups'] = []
 # finalizes the set of groups.
 config['scan2_rescue_groups'] = {
     'placeholder_changeme' : dict(
-        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/sensitivity/' + s + '/scan2_object.rda', s) for s in config['scan2_single_cells'] ]
+        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/call_mutations/' + s + '/scan2_object.rda', s) for s in config['scan2_single_cells'] ]
     )
 }
 config['scan2_rescue_groups_reverse'] = \
@@ -502,7 +498,7 @@ rule scan2_setup:
 def scan2_unpack_donors_and_samples(bams):
     ret = []
     for donor in config['scan2_donors']:
-        ret = ret + expand("scan2/{donor}/scan2/sensitivity/{sample}/scan2_object.rda",
+        ret = ret + expand("scan2/{donor}/scan2/call_mutations/{sample}/scan2_object.rda",
             donor=donor,
             sample=list(meta[(meta['donor'] == donor) & (meta['amp'] != 'bulk')]['sample']))
     return(ret)
