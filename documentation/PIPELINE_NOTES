@@ -70,34 +70,87 @@ Step 0. Install prereqs
  UPDATE ME-------------------------------------------------------------------------]
 
 
-Step 1. Build the SCAN2 cross-sample panel
-==========================================
+
+Step 0b. Install sc_pipeline and create metadata files
+=============================
 0. Download the pipeline and cd into the directed created by git clone:
     * git clone git@github.com:parklab/sc_pipeline.git
     * cd sc_pipeline
-1. Edit metadata/immutable_metadata.csv to include all relevant samples/subjects.
-    * immutable_metadata.csv contains some data columns that *should not* be there,
-      such as plotting color. These will be removed in the future. For now, use
-      filler values for batch, outlier, plotage, color.
-        -> UPDATE: deleted age, batch, color, plotage, outlier
-    * These columns shouldn't be in immutable_metadata.csv because immutable_metadata.csv
-      is an input file to the earliest steps in the pipeline (like scan2 makepanel),
-      which means that updating immutable_metadata.csv will rerun the entire pipeline
-      from scratch. This is obviously not a reasonable thing to do to, e.g., change
-      the color of a sample.
-    * DISCUSSION: what should be in immutable_metadata.csv? Everything necessary for
-      running SCAN2:
-        -> make_panel: donor, sample, amp (only bulk vs. non-bulk status is relevant).
-        -> call_mutations: donor, sample, amp (currently recognized: bulk, MDA, PTA), sex.
-        SHOULD NOT be in immutable_metadata.csv:
-        -> age
-        -> scan2 rescue metadata: metadata needed to group cells for signature-based rescue.
-           SCAN2 signature rescue must be performed on groups of cells that have
-           similar true mutation signatures. Sometimes this is simply assumed, sometimes
-           it should be shown. Metdata necessary for grouping cells may require more
-           than one metadata column: Examples: MDA oligos vs PTA oligos, TDP+ neurons
-           vs. TDP- neurons, ALS/FTD/AD status vs. neurotypical, etc.
-    * TODO: add project-specific metadata in a separate file
+
+Many of the metadata files are not relevant until later stages of the pipeline, but
+are read in immediately, so they must exist.
+
+1. *IMMUTABLE* metadata.  These files are called immutable because changing them is
+   catastrophic.  They are used at the earliest stage of the pipeline (panel building),
+   so any changes to these files will cause a complete rerun.  If they must be changed,
+   it is possible to manually use snakemake's --touch argument on all panel/SCAN2 jobs
+   to avoid reruns, but this requires some expertise.
+
+   For metadata like plotting colors, create another metadata file that can be updated
+   without any dire repercussions.
+    a. metadata/immutable_donor_metadata.csv must contain all donors, including those
+       that are used only for panel building.
+        * Example:
+            metadata/immutable_donor_metadata.csv:
+            donor,sex,age,phenotype,source
+            BU_UNITE_VA190106,M,67,Control,BU_UNITE_VA
+            BU_UNITE_VA301159,M,51,Control,BU_UNITE_VA
+            HBTRCS08631,F,57,FTD,HBTRC
+            ...
+    b. metadata/immutable_metadata.csv must contain a line for each BAM.  This includes
+       single cell BAMs, matched bulk BAMs and auxilliary BAMs.  Note that if multiple
+       bulk BAMs are listed for one donor, the first one will be used as the matched
+       bulk and others will be included as auxilliary BAMs (--bam) in SCAN2.  If BAMs
+       are to be included only for the cross-sample panel but do not need to be
+       re-analyzed by SCAN2, set include.in.panel=TRUE, analyze.with.scan2=FALSE.
+       These columns mean what you think they mean.
+        * Example:
+            donor,sample,amp,include.in.panel,analyze.with.scan2,final.bam
+            UMB1465,1465-cortex_1-neuron_MDA_12,MDA,TRUE,TRUE,/path/to/bam1.bam
+            UMB1465,1465-cortex_1-neuron_MDA_18,MDA,TRUE,TRUE,/path/to/bam2.bam
+            UMB1465,1465-cortex_1-neuron_MDA_20,MDA,TRUE,TRUE,/path/to/bam3.bam
+            ...
+       After creating metadata/immutable_metadata.csv, run metadata/make_bams_yaml.R
+       to create metadata/bams.yaml.
+        * metadata/make_bams_yaml.R metadata/immutable_metadata.csv metadata/bams.yaml
+2. metadata/scan2_resources.csv contains one line per donor.  Each line provides
+   resources for the SCAN2 run of that donor.  There must be one special line for which
+   donor=___INTERNAL___panel, which provides resources for SCAN2 makepanel.  The panel
+   line ignores abests_and_mutmodels_n_cores and ab_covariates_n_cores, which do not
+   apply to the makepanel job.
+    * Example:
+        donor,queue,account,runtime,abests_and_mutmodels_n_cores,ab_covariates_n_cores,restart_times,joblimit,other_snakemake_args
+        ___INTERNAL___panel,priopark,park_contrib,3600,0,0,2,2000,--notemp --slurm
+        BU_UNITE_VA190106,priopark,park_contrib,720,4,2,0,500,--notemp --slurm
+        BU_UNITE_VA301159,priopark,park_contrib,720,4,2,0,500,--notemp --slurm
+        HBTRCS08631,priopark,park_contrib,720,4,2,0,500,--notemp --slurm
+        ...
+    * runtime: time in minutes
+    * restart_times: number of times to restart a job.  Some jobs are designed to require
+        restarts to incrementally increase the memory requirement (e.g., gatk_scatter).
+        Recommended setting: restart_times=2.
+    * other_snakemake_args: free-form string of additional arguments to pass to
+        --snakemake-args in SCAN2 call_mutations.  data.table's fwrite() produces a value
+        of "" for an empty string, which is fine.  An empty column (ensure there are NO
+        SPACES) is also fine.
+        Common uses:
+        - avoid the "memory step-up" procedure on GATK jobs by setting a huge
+          memory requirement for the 'gatk_scatter' job and setting restart_times=0 (which
+          should be done via the restart_times column, not this column).
+              --set-resources gatk_scatter:mem_mb=200000
+          It is common to use this after the pipeline has failed once.  Do not do this on the
+          first run as 200G of memory for each GATK is a massive waste.
+        - specify cluster arguments, like --slurm.  Note that the queue, account and runtime
+          columns assume --slurm is used and will do nothing if --cluster or --drmaa is used
+          instead.
+        - avoid deleting temp files via --notemp.  This is useful if you believe you will
+          need to run a snakemake --touch in the future to update the SCAN2 or r-scan2
+          versions.  If temp files are deleted, then large gather jobs have to rerun all
+          scatter jobs to create intermediate files.
+
+
+Step 1. Build the SCAN2 cross-sample panel
+==========================================
 2. Create and populate bams/ subdirectory.
     * Don't forget bulk BAMs!
     * Files in bams/ must be named bams/{sample_ID}.bam
@@ -314,6 +367,12 @@ RUN SCAN2
 =========
 1. Edit metadata/immutable_donor_metadata.csv to include all relevant samples/subjects.
     * The critical entry in donor metadata is sex, which informs sex chromosome analysis.
+    * Example:
+        metadata/immutable_donor_metadata.csv:
+        donor,sex,age,phenotype,source
+        BU_UNITE_VA190106,M,67,Control,BU_UNITE_VA
+        BU_UNITE_VA301159,M,51,Control,BU_UNITE_VA
+        HBTRCS08631,F,57,FTD,HBTRC
 2. Run SCAN2 configure jobs for each donor:
     * First do a dry run to ensure no panel creation jobs will be rerun.  Since panel
       building is so compute intensive, it would be disastrous to accidentally rerun
