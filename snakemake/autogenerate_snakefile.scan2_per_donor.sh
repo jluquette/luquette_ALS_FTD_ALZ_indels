@@ -36,7 +36,7 @@ module scan2_call_$donor:
 
 use rule scan2_call_mutations from scan2_call_${donor} as scan2_call_mutations_${donor} with:
     output:
-        rdas=protected(expand('scan2/{{donor}}/scan2/sensitivity/{sample}/scan2_object.rda',
+        rdas=protected(expand('scan2/{{donor}}/scan2/call_mutations/{sample}/scan2_object.rda',
             sample=bams['${donor}']['single_cell'].keys()))
 EOF
 done >> $outfile
