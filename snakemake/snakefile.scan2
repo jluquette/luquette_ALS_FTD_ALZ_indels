@@ -17,9 +17,7 @@ rule download_specific_scan2_rpkg_version:
         dir=directory('scan2/r-scan2_specific_commit')
     log:
     params:
-        commit_id="c0aef34f47ebe2fd35dc1d0eeee404b69508ce0c"
-        # real commit is below.
-        #commit_id="a6d682c1bf49114b3cea6776f317f757973f41f1"
+        commit_id=config['scan2_version']['r-scan2']['installed_commit_id']
     localrule: True
     threads: 1
     resources:
@@ -52,9 +50,7 @@ rule download_specific_scan2_version:
         scan2_resources=directory("scan2/SCAN2_specific_commit/resources")
     log:
     params:
-        commit_id="ee9a6d491d10723c057d0be81d0741ca960fdee4"
-        # real commit is below
-        #commit_id="28254525d490ca6efceaece95723304f3aba22de"
+        commit_id=config['scan2_version']['scan2']['installed_commit_id']
     localrule: True
     threads: 1
     resources:
