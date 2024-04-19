@@ -208,7 +208,7 @@ rule scan2_cross_sample_panel:
         scan2_panel_cores=10,
         # a little annoying: when no args are specified, want this to be an empty string.
         # when args are specified, add a space.
-        scan2_other_snakemake_args='' if config['scan2_resources']['___INTERNAL___panel']['other_snakemake'] == '' else ' ' + config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args'] 
+        scan2_other_snakemake_args='' if config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args'] == '' else ' ' + config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args_args'] 
     shell:
         # --notemp: the new scan2 rules that adds a dummy rule to create
         #   an argument file of VCFs (which are temped()) make it impossible
@@ -306,7 +306,7 @@ rule scan2_call_mutations:
         scan2_joblimit=lambda wildcards: config['scan2_resources'][wildcards.donor]['joblimit'],
         # a little annoying: when no args are specified, want this to be an empty string.
         # when args are specified, add a space.
-        scan2_other_snakemake_args=lambda wildcards: '' if config['scan2_resources'][wildcards.donor]['other_snakemake'] == '' else ' ' + config['scan2_resources'][wildcards.donor]['other_snakemake_args'] 
+        scan2_other_snakemake_args=lambda wildcards: '' if config['scan2_resources'][wildcards.donor]['other_snakemake_args'] == '' else ' ' + config['scan2_resources'][wildcards.donor]['other_snakemake_args'] 
     shell:
         # --notemp: the new scan2 rules that adds a dummy rule to create
         #   an argument file of VCFs (which are temped()) make it impossible
