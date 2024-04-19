@@ -69,7 +69,7 @@ rule download_specific_scan2_version:
         git clone https://github.com/parklab/SCAN2.git {output.dir}
         cd {output.dir}
         git checkout -q {params.commit_id}
-        echo "version='$(cat recipes/scan2/meta.yaml | grep -v 'GIT_FULL_HASH' | shyaml get-value package.version)'" >> bin/version.py
+        echo "version='$(cat recipes/scan2/meta.yaml | grep -v 'GIT_FULL_HASH' | shyaml get-value package.version)'" > bin/version.py
         echo "buildnum='$(cat recipes/scan2/meta.yaml | grep -v 'GIT_FULL_HASH' | shyaml get-value build.number)'" >> bin/version.py
         echo "githash='{params.commit_id}'" >> bin/version.py
         """
@@ -139,10 +139,12 @@ rule unpack_shapeit_b37_refpanel:
 
 rule scan2_cross_sample_panel_setup:
     input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
-        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        scan2_resources="scan2/SCAN2_specific_commit/resources",
+        # ancient(): allows for updates to SCAN2 without rerunning the panel, which
+        # has *almost* no dependence on SCAN2.
+        scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+        scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
+        scan2_scripts=ancient("scan2/SCAN2_specific_commit/scripts"),
+        scan2_resources=ancient("scan2/SCAN2_specific_commit/resources"),
         fasta='resources/human_g1k_v37_decoy.fasta',
         fai='resources/human_g1k_v37_decoy.fasta.fai',
         fadict='resources/human_g1k_v37_decoy.dict',
@@ -188,8 +190,10 @@ rule scan2_cross_sample_panel_setup:
 
 rule scan2_cross_sample_panel:
     input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
+        # ancient(): allows for updates to SCAN2 without rerunning the panel, which
+        # has *almost* no dependence on SCAN2.
+        scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+        scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
         yaml="scan2/panel/makepanel/scan.yaml"
     output:
         cross_sample_panel=protected("scan2/panel/makepanel/panel/panel.tab.gz"),
@@ -208,7 +212,7 @@ rule scan2_cross_sample_panel:
         scan2_panel_cores=10,
         # a little annoying: when no args are specified, want this to be an empty string.
         # when args are specified, add a space.
-        scan2_other_snakemake_args='' if config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args'] == '' else ' ' + config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args_args'] 
+        scan2_other_snakemake_args='' if config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args'] == '' else ' ' + config['scan2_resources']['___INTERNAL___panel']['other_snakemake_args'] 
     shell:
         # --notemp: the new scan2 rules that adds a dummy rule to create
         #   an argument file of VCFs (which are temped()) make it impossible
@@ -224,10 +228,12 @@ rule scan2_cross_sample_panel:
 
 rule scan2_call_mutations_setup:
     input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
-        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        scan2_resources="scan2/SCAN2_specific_commit/resources",
+        # ancient(): as above, allows the user to manually update SCAN2 without retriggering
+        # a full SCAN2 run.  this is sometimes necessary when developing.
+        scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+        scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
+        scan2_scripts=ancient("scan2/SCAN2_specific_commit/scripts"),
+        scan2_resources=ancient("scan2/SCAN2_specific_commit/resources"),
         fasta='resources/human_g1k_v37_decoy.fasta',
         fai='resources/human_g1k_v37_decoy.fasta.fai',
         fadict='resources/human_g1k_v37_decoy.dict',
@@ -317,7 +323,7 @@ rule scan2_call_mutations:
                 --joblimit {resources.scan2_joblimit} \
                 --abests-and-mutmodels-n-cores={resources.scan2_abests_and_mutmodels_n_cores} \
                 --ab-covariates-n-cores={resources.scan2_ab_covariates_n_cores} \
-                --snakemake-args ' --restart-times={resources.scan2_restart_times} --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --default-resources slurm_account={params.scan2_account} slurm_partition={params.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
+                --snakemake-args ' --restart-times={resources.scan2_restart_times} --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --default-resources slurm_account={resources.scan2_account} slurm_partition={resources.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
         """
 
 
