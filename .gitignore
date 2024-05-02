@@ -27,3 +27,4 @@ metadata/scan2_resources.csv
 snakemake/snakefile.scan2_per_donor
 resources/human_g1k_v37_decoy*
 resources/1000GP_Phase3/
+snakemake/snakefile.scan2_rescue_groups
