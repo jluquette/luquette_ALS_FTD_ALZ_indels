@@ -306,6 +306,7 @@ rule scan2_call_mutations:
         scan2_queue=lambda wildcards: config['scan2_resources'][wildcards.donor]['queue'],
         scan2_account=lambda wildcards: config['scan2_resources'][wildcards.donor]['account'],
         scan2_runtime=lambda wildcards: config['scan2_resources'][wildcards.donor]['runtime'],
+        scan2_genotype_n_cores=1,
         scan2_abests_and_mutmodels_n_cores=lambda wildcards: config['scan2_resources'][wildcards.donor]['abests_and_mutmodels_n_cores'],
         scan2_ab_covariates_n_cores=lambda wildcards: config['scan2_resources'][wildcards.donor]['ab_covariates_n_cores'],
         scan2_restart_times=lambda wildcards: config['scan2_resources'][wildcards.donor]['restart_times'],
@@ -321,33 +322,21 @@ rule scan2_call_mutations:
         {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
             call_mutations \
                 --joblimit {resources.scan2_joblimit} \
+                --genotype-n-cores={resources.scan2_genotype_n_cores} \
                 --abests-and-mutmodels-n-cores={resources.scan2_abests_and_mutmodels_n_cores} \
                 --ab-covariates-n-cores={resources.scan2_ab_covariates_n_cores} \
                 --snakemake-args ' --restart-times={resources.scan2_restart_times} --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --default-resources slurm_account={resources.scan2_account} slurm_partition={resources.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
         """
 
 
-rule scan2_rda_to_vcf:
-    input:
-        rda=lambda wildcards: "scan2/" + config['sample_to_donor_map'][wildcards.sample] + "/scan2/sensitivity/{sample}/scan2_object.rda"
-    output:
-        vcf="vcfs/{qualtype}/{sample}.vcf"
-    log:
-        "vcfs/{qualtype}/{sample}.log"
-    params:
-        qualtype="{qualtype}"
-    resources:
-        # The full SCAN2 objects are now very large due to the spatial sensitivity models
-        mem_mb=10000
-    script:
-        "scripts/scan2_to_vcf.R"
-
-
 rule scan2_rescue_setup:
     input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
-        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
+        fasta='resources/human_g1k_v37_decoy.fasta',
+        fai='resources/human_g1k_v37_decoy.fasta.fai',
+        fadict='resources/human_g1k_v37_decoy.dict',
+        scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+        scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
+        scan2_scripts=ancient("scan2/SCAN2_specific_commit/scripts"),
         scan2_objects=lambda wildcards: config['scan2_rescue_groups'][wildcards.rescue_group].keys()
     output:
         "scan2/rescue_{rescue_group}/scan.yaml"
@@ -361,9 +350,6 @@ rule scan2_rescue_setup:
     localrule: True
     threads: 1
     resources:
-        # The (much) larger SCAN2 objects with spatial sensitivity models are ~9GB each.
-        # An extra 3GB is needed for a very unfortunate required copy of the object@gatk
-        # data.table.
         mem_mb=1000,
         localjob=1
     shell:
@@ -373,6 +359,7 @@ rule scan2_rescue_setup:
             --verbose \
             --scripts $(realpath {input.scan2_scripts}) \
             --analysis rescue \
+            --ref {input.fasta} \
             --rescue-target-fdr 0.01 \
             {params.obj_flags}
         {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} validate
@@ -384,7 +371,6 @@ rule scan2_rescue_run:
         scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
         scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
         scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        #scan2_objects=lambda wildcards: config['rescue_group_to_scan2_objects'][wildcards.rescue_group].keys(),
         scan2_objects=lambda wildcards: config['scan2_rescue_groups'][wildcards.rescue_group].keys(),
         yaml="scan2/rescue_{rescue_group}/scan.yaml"
     output:
@@ -395,19 +381,58 @@ rule scan2_rescue_run:
     benchmark:
         "scan2/rescue_{rescue_group}/run.benchmark.txt"
     params:
-        outdir="scan2/rescue_{rescue_group}",
+        outdir="scan2/rescue_{rescue_group}"
     threads: 10
     resources:
-        # The (much) larger SCAN2 objects with spatial sensitivity models are ~9GB each.
-        # An extra 3GB is needed for a very unfortunate required copy of the object@gatk
-        # data.table.  Just alotting double the object size here in case the entire object
-        # is ever copied.
-        mem_mb=lambda wildcards, input, threads: 1000 + (2*9000)*threads
+        # Each thread loads one full analysis object (~3.5Gb of RAM for humans).
+        # Give double in case a copy is made.
+        mem_mb=lambda wildcards, input, threads: (7000)*(1 + threads)
     shell:
         """
         {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} rescue \
-            --rescue-n-cores {threads} \
+            --n-cores {threads} \
             --joblimit {threads}
+        """
+
+
+# Make a flattened directory of SCAN2 objects for convenience. Does require
+# that sample names are unique across donors.
+rule scan2_link_full_object:
+    input:
+        # Pre-rescue object, if we ever want to go back to that
+        #scan2_full_obj=lambda wildcards: "scan2/" + config['sample_to_donor_map'][wildcards.sample] + "/call_mutations/{sample}/scan2_object.rda"
+        scan2_full_obj=lambda wildcards: "scan2/rescue_" + config['scan2_rescue_groups_reverse'][wildcards.sample] + "/objects/" + wildcards.sample + "_scan2_object_rescue.rda"
+    output:
+        linked_obj="scan2/full_objects/{sample}.rda"
+    localrule: True
+    threads: 1
+    resources:
+        mem_mb=10,
+        localjob=1
+    shell:
+        """
+        ln -s ../../{input.scan2_full_obj} {output.linked_obj}
+        """
+
+
+# Full objects are ~3 Gb for human samples, summaries are ~45 Mb and contain
+# most of the information necessary for downstream analysis.
+rule scan2_make_summary:
+    input:
+        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
+        rda="scan2/full_objects/{sample}.rda"
+    output:
+        rda="scan2/summary_objects/{sample}.rda"
+    log:
+        "scan2/summary_objects/{sample}.log"
+    benchmark:
+        "scan2/summary_objects/{sample}.benchmark.txt"
+    threads: 4
+    resources:
+        mem_mb=lambda wildcards, input, threads: (1+threads)*8000
+    shell:
+        """
+        {input.scan2_scripts}/summarize_object.R {input.rda} {output.rda} {threads} &> {log}
         """
 
 
@@ -453,7 +478,8 @@ rule scan2_table_to_csv:
     params:
         qualtype='{qualtype}',
         filter='{filter}',
-        samples=config['all_samples']  # Don't filter by sample. Also config['all_samples'] is a superset, so fairly meangingless
+        # Disable per-sample filtering by providing a superset of all samples.
+        samples=config['all_samples']  
     threads: 1
     resources:
         mem_mb=1000
@@ -626,45 +652,4 @@ rule scan2_permtool_synthetic:
             {output.seeds} \
             {threads} \
             {input.rdas} >& {log}
-        """
-
-
-rule scan2_link_full_object:
-    input:
-        scan2_full_obj=lambda wildcards: "scan2/rescue_" + config['scan2_rescue_groups_reverse'][wildcards.sample] + "/objects/{sample}_scan2_object_rescue.rda"
-    output:
-        linked_obj="scan2/full_objects/{sample}.rda"
-    localrule: True
-    threads: 1
-    resources:
-        mem_mb=10,
-        localjob=1
-    shell:
-        """
-        ln -s ../../{input.scan2_full_obj} {output.linked_obj}
-        """
-
-
-# Full SCAN2 objects are REALLY big--like ~10GB in size--and can therefore take an
-# extremely long time to load. Loading 100+ of them can be totally impractical.
-# Tiny objects have all summary data available, but truncated @gatk tables and
-# @spatial.sensitivity models.
-#
-# Tiny objects are ~20-30 MB in size.
-rule scan2_make_tiny_object:
-    input:
-        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        scan2_obj="scan2/full_objects/{sample}.rda"
-    output:
-        rda="scan2/tiny_objects/{sample}.rda"
-    log:
-        "scan2/tiny_objects/{sample}.log"
-    benchmark:
-        "scan2/tiny_objects/{sample}.benchmark.txt"
-    threads: 1
-    resources:
-        mem_mb=20000
-    shell:
-        """
-        {input.scan2_scripts}/make_tiny_object.R {input.scan2_obj} {output.rda} &> {log}
         """
