@@ -42,7 +42,6 @@ for (f in c(out.csv)) {
 }
 
 suppressMessages(library(scan2))
-suppressMessages(library(mutenrich))
 
 cat("Reading tile files..\n")
 gr2 <- function(tab) GenomicRanges::GRanges(seqnames=tab$chr, ranges=IRanges(start=tab$start, end=tab$end))
