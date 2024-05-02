@@ -47,7 +47,7 @@ config['chrs_for_alignability'] = [ str(x) for x in range(1, 23) ] + [ 'X', 'Y' 
 # analysis. This file allows the user to modify this as desired in a
 # slightly more straightforward way, though this ordering could also be
 # assumed for immutable_metadata.csv as well.
-with open('metadata/bams.yaml') as yf:
+with open('metadata/bams.yaml', 'r') as yf:
     bams = yaml.load(yf, Loader=yaml.FullLoader)
 # `bams` is a dict mapping donor ID -> list(single cell bams, bulk bams, other bams), where
 # each of the elements in the above list are also dicts mapping sample ID -> bam path.
@@ -74,32 +74,138 @@ config['donor_to_scan2_sample_map'] = dict(
     (donor, list(meta[(meta['analyze.with.scan2'] == True) & (meta['donor'] == donor)]['sample']))
         for donor in set(meta[meta['analyze.with.scan2'] == True]['donor']))
 
+# Various mappings of donor/sample to SCAN2 outputs
 config['scan2_depth_matrices'] = dict((donor, "scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz") for donor in config['scan2_donors'])
 
-# XXX: update me when new group mechanism is finished
-config['generic_groups'] = []
-config['synthetic_groups'] = []
+# map: sample -> summary SCAN2 object
+config['scan2_summary_object'] = \
+    dict(zip(config['scan2_single_cells'], [ 'scan2/summary_objects/' + s + '.rda' for s in config['scan2_single_cells'] ]))
+
+# map: sample -> full SCAN2 object
+config['scan2_full_object'] = \
+    dict(zip(config['scan2_single_cells'], [ 'scan2/full_objects/' + s + '.rda' for s in config['scan2_single_cells'] ]))
+
+
+
+
+############################################################################################
+# Define groups of single cells for various analyses.
 #
-# Run mutation signature-based rescue on the following cell groups.
-# Note SCAN2 signature rescue is NOT DESIGNED for MDA amplified single cells.  However,
-# to simplify data wrangling (i.e., generate files with uniform formats), one can apply
-# SCAN2 rescue to MDA cells and then ignore the rescued calls (e.g., by ignoring any call
-# with pass=F and rescue=T or only using "A" mutation sets (not "AB" mutation sets).
+# NOTE: currently, only samples analyzed by SCAN2 are permitted for groups. Support for
+# external mutation calls may be added in the future.
 #
-# BY DEFAULT, assign all cells to a single placeholder group. this allows
-# pre-rescue steps like makepanel and call_mutations to run before the user
-# finalizes the set of groups.
-config['scan2_rescue_groups'] = {
-    'placeholder_changeme' : dict(
-        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/call_mutations/' + s + '/scan2_object.rda', s) for s in config['scan2_single_cells'] ]
+# Column orders must be respected.
+#   metadata/groups.csv
+#       - 2 column file: group, sample name
+#   metadata/group_metadata.csv
+#       - 3 column file: group, analysis name, color
+#       contains metadata concerning which groups participate in which analyses.
+#       analysis name="scan2_rescue" is required (explained below).
+#       Presence of a row indicates the group is included in the analysis,
+#       absence indicates exclusion.  Groups may belong to multiple analyses.
+# 
+# Rescue groups
+# -------------
+# There is one special group type, the "rescue_group". This group is defined by setting
+# analysis=scan2_rewscue in group_metadata.csv.  It must cover all single
+# cells in this analysis, and the groups must be mutually exclusive.  SCAN2 
+# mutation signature-based rescue will be run on these groups and post-SCAN2 recurrence
+# filtering will occur on each group separately.
+# 
+# Rescue groups must be defined by single cells that presumably share the same mutational
+# mechanisms (this can be checked by hand later using SCAN2's signature homogeneity tests).
+# Rescue groups *are not* meant to define groups that are to be compared in downstream
+# analysis (e.g., aging trends, mutation signature analysis, enrichment analyses and so on).
+# Use generic_groups or synthetic_groups to create groups of cells for comparison.
+#
+# Note: although SCAN2 signature rescue is NOT DESIGNED for MDA amplified single cells and
+# (at time of this writing) will not work well, it is useful to run MDA cells through
+# rescue anyway to generate files in a uniform format.  After rescue is run on MDA cells,
+# the rescued mutations are ignored.  This is not exactly equivalent to not running rescue
+# because the recurrent mutation artifact filters (downstream of SCAN2) consider rescued
+# calls when defining recurrence or clusters, but the effect should be minimal.
+#
+# DO NOT combine MDA cells with PTA cells.
+#
+# 
+# Other groups
+# ------------
+# The user is allowed to create any other groups to facilitate comparisons.  These groups
+# need not cover all cells nor be mutually exclusive.
+############################################################################################
+
+config['groups'] = {}
+for group, df in pd.read_csv('metadata/groups.csv').groupby('group'):
+    # group is group name, df is a pandas dataframe with 'group' and 'sample' columns
+    config['groups'][group] = list(df['sample'])
+
+# Ensure samples that were not analyzed by SCAN2 are not included in any group
+for group, samples in config['groups'].items():
+    invalid_cells = [ s for s in samples if s not in config['scan2_single_cells'] ]
+    if len(invalid_cells) > 0:
+        raise RuntimeError('only SCAN2-analyzed cells are permitted in groups.  the following cells in group ' + group + ' were not analyzed by SCAN2: ' + ' '.join(invalid_cells))
+
+
+# Maps analysis name -> list(map group name -> metadata)
+config['analysis_meta'] = {}
+for analysis, df in pd.read_csv('metadata/group_metadata.csv').groupby('analysis'):
+    config['analysis_meta'][analysis] = df.drop(columns='analysis').set_index('group').T.to_dict()
+import pprint as pp
+print('------------ groups-------------')
+pp.pprint(config['groups'])
+print('------------ analysis_meta -------------')
+pp.pprint(config['analysis_meta'])
+
+pp.pprint(config['analysis_meta']['scan2_rescue'])
+# dict maping: rescue group name -> dict(pre-rescue SCAN2 object -> sample name)
+# it would be preferable if each rescue group could be mapped only to a list of sample
+# names, but for technical reasons it is necessary to map object paths to sample names.
+config['scan2_rescue_groups'] = {}
+for group, _ in config['analysis_meta']['scan2_rescue'].items():
+    samples = config['groups'][group]
+    config['scan2_rescue_groups'][group] = dict(
+          # construct path to each SCAN2 analysis object from call_mutations.  This must
+          # match the output scheme defined in snakefile.scan2 and snakefile.scan2_per_donor
+        [ ('scan2/' + config['sample_to_donor_map'][s] + '/scan2/call_mutations/' + s + '/scan2_object.rda', s)
+            for s in samples ]
     )
-}
+
+# reverse lookup: map sample -> rescue group
 config['scan2_rescue_groups_reverse'] = \
     dict((sample, g) for g in config['scan2_rescue_groups'].keys() for sample in config['scan2_rescue_groups'][g].values())
 
+
+print('------------ scan2_rescue-------------')
+pp.pprint(config['scan2_rescue_groups'])
+print('------------ reverse -------------')
+pp.pprint(config['scan2_rescue_groups_reverse'])
+
+
+############################################################################################
+# Group comparisons
+#
+# Some analyses compare groups.  These comparisons are defined in
+#     metadata/group_comparisons.csv
+# Format: columns named: comparison, group, analysis
+#       - any additional columns are treated as metadata, but are currently ignored
+# Analyses that use group comparisons:
+#   - aging_rates
+############################################################################################
+
+# Maps analysis name -> list(map group name -> metadata)
+config['analysis_comparisons'] = {}
+for analysis, df in pd.read_csv('metadata/group_comparisons.csv').groupby('analysis'):
+    config['analysis_comparisons'][analysis] = \
+        df.drop(columns='analysis').groupby('comparison')['group'].apply(list).to_dict()
+
+print('------------- analysis_comparisons ---------------')
+pp.pprint(config['analysis_comparisons'])
+
+config['generic_groups'] = []
+config['synthetic_groups'] = []
+
+
 config['mutsig_groups_for_de_novo'] = dict()
-config['mutsig_groups_for_signature_inclusion'] = []
-config['aging_groups_to_model'] = dict()
 config['cosmic_vs_age_group'] = dict()
 config['comparison_groups'] = []
 config['group_colors'] = dict()
@@ -282,28 +388,12 @@ synthetic_groups = \
 config['synthetic_groups'] = dict((g, list(group_from_meta(g)['sample'])) for g in synthetic_groups)
 
 
-def aging_group_to_scan2_objects(aging_group):
-    subset = group_from_meta(aging_group)
-    return(list('scan2/tiny_objects/' + subset['sample'] + '.rda'))
-
-config['aging_groups'] = dict((g, aging_group_to_scan2_objects(g)) for g in generic_groups)
-
-# No MDA here. That requires signature B correction
-config['aging_groups_to_model'] = {
-    'pta': [ 'pta_neuron', 'pta_oligo' ],
-    'all': [ 'pta_neuron', 'pta_oligo', 'mda_sox10', 'mda_gfap' ],
-    'batch1_vs_batch2': [ 'pta_oligo_batch1', 'pta_oligo_batch2' ],
-    'pta_oligo_batch1': [ 'pta_neuron', 'pta_oligo_batch1' ],
-    'pta_oligo_batch2': [ 'pta_neuron', 'pta_oligo_batch2' ]
-}
 
 config['mutsig_groups_for_de_novo'] = {
     'all': config['scan2_single_cells'],
     'pta': list((meta[meta["amp"] == "PTA") & (meta['analyze.with.scan2'] == True)]['sample']),
     'mda': list((meta[meta["amp"] == "MDA") & (meta['analyze.with.scan2'] == True)]['sample'])
 }
-
-config['mutsig_groups_for_signature_inclusion'] = [ 'pta_neuron', 'pta_oligo' ]
 
 config['cosmic_vs_age_group'] = config['aging_groups_to_model']
 
@@ -476,6 +566,7 @@ wildcard_constraints:
     muttype='snv|indel',
     donor='|'.join(config['all_donors']),
     tumor='|'.join(config['pcawg_tumors']),
+    group='|'.join(config['groups'].keys()),
     de_novo_group='|'.join(config['mutsig_groups_for_de_novo'].keys()),
     generic_group='|'.join(config['generic_groups']),
     rescue_group='|'.join(config['scan2_rescue_groups'].keys()),
@@ -527,6 +618,11 @@ rule scan2_rescue:
         expand('scan2/rescue_{rescue_group}/sig_homogeneity_tests.txt',
             rescue_group=config['scan2_rescue_groups'].keys())
 
+rule scan2_summarize:
+    input:
+        expand('scan2/summary_objects/{sample}.rda',
+            sample=config['scan2_single_cells'])
+
 rule scan2_digest:
     input:
         expand('scan2/{rescue_group}_mutations.{filter_status}.txt',
@@ -543,7 +639,7 @@ rule scan2_permtool:
 rule scan2_objects:
     input:
         expand('scan2/{size}_objects/{sample}.rda',
-            size=[ 'full', 'tiny' ], sample=config['scan2_single_cells'])
+            size=[ 'full', 'summary' ], sample=config['scan2_single_cells'])
 
 rule scan2_metrics:
     input:
@@ -574,7 +670,7 @@ rule alignability:
 rule aging_rates:
     input:
         expand('aging_rates/{age_group}___{analysis}___{qualtype}.csv',
-            age_group=config['aging_groups_to_model'].keys(),
+            age_group=config['analysis_comparisons']['aging_rates'].keys(),
             analysis=[ 'mutburden_combined', 'mutburden_models' ],
             qualtype=[ 'A', 'indel_A' ]),  # only passA calls are used
 
@@ -587,17 +683,7 @@ rule mutsigs:
             group=config['generic_groups'],
             qualtype=[ 'A', 'indel_A' ],
             output=[ 'pdf', 'svg', 'csv' ]),
-        expand("mutsigs/ad_hoc_signature_selection/cosmic_signature_inclusion/all___signature_selection___{qualtype}.csv",
-            qualtype=[ 'A', 'indel_A' ]),
-        expand("mutsigs/ad_hoc_signature_selection/cosmic_aging/{group}___barplots___{qualtype}.{output}",
-            group=config['generic_groups'],
-            qualtype=[ 'A', 'indel_A' ],
-            output=[ 'pdf', 'svg' ]),
-        expand("mutsigs/ad_hoc_signature_selection/cosmic_aging/{group}___cosmic_models_vs_age___{qualtype}.{output}",
-            group=config['cosmic_vs_age_group'].keys(),
-            qualtype=[ 'A', 'indel_A' ],
-            output=[ 'pdf', 'svg', 'csv' ]),
-        # SigProfilerExtractor output. Eventually either this or ad_hoc_signature_selection will be unnecessary.
+        # SigProfilerExtractor output.
         # Output for choosing the number of active signatures
         expand('mutsigs/sigprofilerextractor/{de_novo_group}/{sigprofiler_spectype}/{sigprofiler_spectype}/{sigprofiler_spectype}_selection_plot.pdf',
             de_novo_group=config['mutsig_groups_for_de_novo'].keys(),
