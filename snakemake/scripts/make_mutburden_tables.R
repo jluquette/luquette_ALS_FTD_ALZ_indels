@@ -41,13 +41,13 @@ if (muttype != 'snv' & muttype != 'indel')
 
 suppressMessages(library(scan2))
 
-meta <- fread(meta)[,.(sample,donor,age,plotage,color,outlier)]
+meta <- fread(meta)[,.(sample,donor,age,outlier)]
 
-objects <- lapply(object.rdas, function(rf) get(load(rf)))
+objects <- load.summary(paths=object.rdas)
 
-dt <- data.table(sample=sapply(objects, function(o) o@single.cell),
-                 nsom=sapply(objects, function(o) sum(o@mutburden[[muttype]]$ncalls)),
-                 genome.burden=sapply(objects, function(o) mutburden(o)[muttype]))
+dt <- data.table(sample=name(objects),
+                 nsom=sapply(objects, function(o) nrow(passing(o))),
+                 genome.burden=mutburden(objects, muttype=muttype))
 if (prevburden != 'Notafile') {
     cat("Adding neuron burdens from previous paper..\n")
     dt <- rbind(dt, fread(prevburden)[,.(sample=sample,nsom=raw.calls, genome.burden=burden)])
@@ -55,7 +55,7 @@ if (prevburden != 'Notafile') {
 
 meta <- meta[dt, on='sample']
 # No longer masking them by setting to NA.
-#meta[meta$outlier != "NORMAL"]$genome.burden <- NA  # mask outliers from the aging rate calculations
+meta[meta$outlier != "NORMAL"]$genome.burden <- NA  # mask outliers from the aging rate calculations
 
 fwrite(meta, file=out.csv)
 
