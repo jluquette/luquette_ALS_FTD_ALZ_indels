@@ -4,16 +4,16 @@
 # directly from tables (such as previous SCAN2 analyses).
 rule collect_mut_burdens:
     input:
-        objects=lambda wildcards: config['aging_groups'][wildcards.generic_group],
+        objects=lambda wildcards: [ config['scan2_summary_object'][s] for s in config['groups'][wildcards.group] ],
         meta='metadata/sample_metadata.csv'
     output:
-        csv="aging_rates/{generic_group}___mutburden___{qualtype}.csv"
+        csv="aging_rates/{group}___mutburden___{qualtype}.csv"
     params:
         muttype=lambda wildcards: 'indel' if wildcards.qualtype.startswith('indel_') else 'snv',
     resources:
         mem_mb=8000
     log:
-        "aging_rates/{generic_group}___mutburden___{qualtype}.log"
+        "aging_rates/{group}___mutburden___{qualtype}.log"
     script:
         "scripts/make_mutburden_tables.R"
 
@@ -25,17 +25,18 @@ rule model_aging_rates:
     input:
         lambda wildcards:
             [ "aging_rates/" + g + "___mutburden" + ('_mda_corrected' if 'mda' in g and 'indel' not in wildcards.qualtype else '') + "___" + wildcards.qualtype + ".csv"
-                for g in config['aging_groups_to_model'][wildcards.age_group] ]
+                for g in config['analysis_comparisons']['aging_rates'][wildcards.group] ]
     output:
-        svg="aging_rates/{age_group}___mutburden_models___{qualtype}.svg",
-        pdf="aging_rates/{age_group}___mutburden_models___{qualtype}.pdf",
-        models="aging_rates/{age_group}___mutburden_models___{qualtype}.csv",
-        burdens="aging_rates/{age_group}___mutburden_combined___{qualtype}.csv"
+        svg="aging_rates/{group}___mutburden_models___{qualtype}.svg",
+        pdf="aging_rates/{group}___mutburden_models___{qualtype}.pdf",
+        models="aging_rates/{group}___mutburden_models___{qualtype}.csv",
+        burdens="aging_rates/{group}___mutburden_combined___{qualtype}.csv"
     log:
-        "aging_rates/{age_group}___mutburden_models___{qualtype}.log"
+        "aging_rates/{group}___mutburden_models___{qualtype}.log"
     params:
-        group_names=lambda wildcards: config['aging_groups_to_model'][wildcards.age_group],
-        colors=lambda wildcards: [ config['group_colors'][g] for g in config['aging_groups_to_model'][wildcards.age_group] ]
+        group_names=lambda wildcards: config['analysis_comparisons']['aging_rates'][wildcards.group],
+        colors=lambda wildcards: [ config['analysis_meta']['aging_rates'][g]['color']
+                for g in config['analysis_comparisons']['aging_rates'][wildcards.group] ]
     resources:
         mem_mb=4000
     script:
@@ -49,7 +50,6 @@ rule correct_mutburdens_mda:
     input:
         mutburden="aging_rates/{generic_group}___mutburden___A.csv",
         expomat="mutsigs/sigprofilerextractor/cosmic_reduced/{generic_group}___expomat___A.csv"
-        #expomat="mutsigs/ad_hoc_signature_selection/cosmic_reduced/{generic_group}___expomat___A.csv"
     output:
         csv="aging_rates/{generic_group}___mutburden_mda_corrected___A.csv"
     log:
