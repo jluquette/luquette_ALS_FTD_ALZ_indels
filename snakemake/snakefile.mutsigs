@@ -128,21 +128,6 @@ rule score_cosmic_sigs:
         "scripts/score_cosmic_signatures.R"
 
 
-# Use scores to decide which COSMIC signatures to keep
-rule select_cosmic_sigs:
-    input:
-        expand("mutsigs/ad_hoc_signature_selection/cosmic_signature_inclusion/{mutsig_group}___signature_scores___{{qualtype}}.csv",
-            mutsig_group=config['mutsig_groups_for_signature_inclusion'])
-    output:
-        csv="mutsigs/ad_hoc_signature_selection/cosmic_signature_inclusion/all___signature_selection___{qualtype}.csv"
-    resources:
-        mem_mb=1000
-    log:
-        "mutsigs/ad_hoc_signature_selection/cosmic_signature_inclusion/all___signature_selection___{qualtype}.log"
-    script:
-        "scripts/select_cosmic_sigs.R"
-
-
 # N.B. the reduced COSMIC table contains signatures present in any of
 # groups used to determine active signatures. This allows direct comparisons
 # between all signatures in all groups - if instead a reduced table is created
