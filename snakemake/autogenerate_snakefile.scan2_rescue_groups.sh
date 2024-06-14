@@ -36,5 +36,24 @@ use rule scan2_rescue_run from scan2_rescue_${group} as scan2_rescue_run_${group
         rdas=protected(expand('scan2/rescue_{{rescue_group}}/objects/{sample}_scan2_object_rescue.rda',
             sample=config['scan2_rescue_groups']['${group}'].values()))
 
+use rule scan2_permtool_run from scan2_rescue_${group} as scan2_permtool_run_${group} with:
+    input:
+        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
+        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
+        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
+        yaml="scan2/permtool/${group}/scan.yaml"
+    output:
+        expand("scan2/permtool/${group}/perms_{muttype}_{passtype}.rda",
+            muttype=[ 'snv', 'indel'], passtype=[ 'pass', 'rescue' ]),
+        expand('scan2/permtool/${group}/perms_by_sample/{sample}/{muttype}_{passtype}.rda',
+            sample=config['scan2_rescue_groups']['${group}'].values(),
+            muttype=[ 'snv', 'indel'], passtype=[ 'pass', 'rescue' ])
+    log:
+        "scan2/permtool/${group}/run.log"
+    benchmark:
+        "scan2/permtool/${group}/run.benchmark.txt"
+    params:
+        outdir="scan2/permtool/${group}"
+
 EOF
 done >> $outfile
