@@ -1,36 +1,4 @@
-# STEPS FOR PRODUCING THE FINAL COLLECTED TABLES OF BURDENS
-#
-# 1. Create (channel X sample) matrices for SigProfilerExtractor
-#   -> mutsigs/matrices/all/matrix.{SBS96,ID83,ID83_corrected}.txt
-#   1a. Run SigProfilerMatrixGenerator (n=544 cells out of n=547. Does not include MDA FTD, e.g.)
-#   1b. Correct ID83 matrices for SCAN2 channel-specific sensitivity
-# 2. Run SigProfilerExtractor on each matrix
-#   -> mutsigs/sigprofilerextractor/all/{SBS96,ID83,ID83_corrected}/Most_Stab_Sigs/{signatures,exposures}.csv
-#   1a. Parallelized and code to extract the most stable signature (can be different from
-#       SigProfilerExtractor's selected solution). Selected signature is copied into Most_Stab_Sigs
-# 3. Create final long table of signature burdens (sample, signature types) [not a matrix]
-#   -> sigburden_long_table.csv
-#   3a. code_from_laptop/small_for_download/make_sigburden_longtable.sh
-#       . snakemake/scripts/annotate_burdens_with_exposures.R combines SNV and indel
-#         scaling factors with SBS and ID signature counts.
-# 4. Combine signature burdens with SNV and indel burdens
-#   -> combined_burdens_denovo_cosmic.no_metadata.csv
-#   4a. Remove metadata columns from aging_rates/mutation_burdens_long_table.csv.
-#       . This is just a `cut` to remove the 10 metadata columns (excluding sample).
-# 5. Fit control models to compute expected burdens
-#   5a. residualize_burden.NEW.R
-#       . This computes a standard linear model (lm, not lmer) on a subset of control
-#         PTA neurons. The subset is created by running a preliminary lm() and excluding
-#         neurons identified by Tukey's outlier procedure.
-#       . Expected values for all PTA cells (of the same type: neuron or oligo) are then
-#         computed from the linear model without regard to phenotype.
-
-########################################################################################
-#
-# Code below copied from code_from_laptop/small_for_download/zinan_cshl_talk/code.R
-#
-########################################################################################
-
+library(broom)
 library(ggplot2)
 library(forcats)
 library(ggsignif)
@@ -38,7 +6,13 @@ library(data.table)
 library(ggpmisc)  # for p-values on correlation plots
 library(scan2)    # for signature plotting
 library(patchwork)
+library(ggseqlogo)
+library(Biostrings)
+library(BSgenome.Hsapiens.1000genomes.hs37d5)
 
+
+
+# Some global theme values
 base.text=10
 large.text=12
 signif.size=1.6 # size of the p-value labels on significance tests. not sure what the unit is
@@ -56,7 +30,6 @@ base.theme <- list(
           #aspect.ratio=1)
 )
 
-#phenotype.colors <- c(Control='#cccccc', ALS='#D66929', FTD='#F3BB71', `ALS/FTD`='#F3BB71', Alzheimers='#B1ABCF') #, na.value='#aaaaaa')
 
 # AD and Alzheimers refer to the same thing. Eventually standardize on AD.
 phenotype.colors <- c(Control='#cccccc', ALS='#DF6236', FTD='#F4C045', `ALS/FTD`='#F4C045', Alzheimers='#6C559F', AD='#6C559F') #, na.value='#aaaaaa')
@@ -69,7 +42,7 @@ ggtheme <- list(
 )
 
 
-meta <- fread('metadata/sample_metadata.csv')
+meta <- fread('../metadata/sample_metadata.csv')
 meta[, phenotype := factor(phenotype, levels=c('Control', 'ALS', 'FTD', 'Alzheimers'))]
 donor.order <- meta[, .(donor, age), by=donor][order(age)][!duplicated(donor)]$donor
 meta[, donor := factor(donor, levels=donor.order)]
@@ -77,17 +50,13 @@ sample.order <- meta[, .(sample, age), by=sample][order(age, sample)][!duplicate
 meta[, sample := factor(sample, levels=sample.order)]
 
 
-groups <- fread('metadata/groups.csv')
+groups <- fread('../metadata/groups.csv')
 no.mapd.indel.outliers <- groups[grep(x=group, pattern='no_mapd_indel_outliers'), unique(sample)]
 
-########################################################################################
-#
-# END COPIED CODE
-#
-########################################################################################
 
+muts <- meta[fread('../tables/all___FILTERED_mut___any.csv'),, on=.(sample)]
 
-burdens <- fread('aging_rates/mutation_burdens_long_table.RESIDUALIZED.csv')
+burdens <- meta[fread('../burdens/combined_residualized_burdens.csv')[burden.source=='scan2'], , on=.(sample)]
 
 # recode snv,indel -> ordered(SNV, Indel)
 burdens[, mut.type := forcats::fct_shift(forcats::fct_recode(mut.type, SNV='snv', Indel='indel'))]
@@ -111,14 +80,13 @@ ggplot(burdens[age >= 50 & sample %in% no.mapd.indel.outliers & phenotype=='Cont
     xlab('Brain region') + ylab("Mutation burden (obs / exp)") +
     ggtheme + theme(aspect.ratio=2) + expand_limits(y=c(0, 2)) +
     labs(title='Control neuron burdens', subtitle='PTA, no MAPD/indel outliers, age>50')
-dev.print(dev=pdf, file='ba6_vs_pfc_control_neuron_burden_comparison.age_gt_50.pdf')
+ggsave(dev=pdf, file='ba6_vs_pfc_control_neuron_burden_comparison.age_gt_50.pdf')
 
 
 
 #
 # 2. Per individual burden boxes - show that in some individuals, intra-individual burden can vary greatly
 #
-# Need to split by BA9 vs. BA6?
 ggplot(burdens[sample %in% no.mapd.indel.outliers & tissue.origin != 'DG' & celltype == 'neuron' & amp == 'PTA'], aes(x=donor, y=burden, fill=tissue.origin)) +
     geom_boxplot(outlier.shape=NA) +
     geom_jitter(size=1/5, width=0.2) +
@@ -127,7 +95,7 @@ ggplot(burdens[sample %in% no.mapd.indel.outliers & tissue.origin != 'DG' & cell
     xlab('Individual ID') + ylab("Mutation burden (log-scale)") +
     base.theme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5)) + scale_y_log10()
     #+ scale_y_continuous(trans='log2', n.breaks=8, label=function(x) round(x,2))
-dev.print(dev=pdf, file='burdens_per_individual.pdf')
+ggsave(dev=pdf, file='burdens_per_individual.pdf')
 
 
 
@@ -143,7 +111,7 @@ ggplot(burdens[phenotype != 'Control' & sample %in% no.mapd.indel.outliers & tis
     facet_grid(mut.type~phenotype, scales='free_y') +
     xlab('Age') + ylab('Somatic mutation burden') + ggtheme + theme(aspect.ratio=1) +
     labs(title='Mutation burdens with control trend lines', subtitle='MAPD/indel outliers removed')
-dev.print(dev=pdf, file='mutation_burdens_with_control_trend_lines.NO_MAPD_INDEL_OUTLIERS.pdf')
+ggsave(dev=pdf, file='mutation_burdens_with_control_trend_lines.NO_MAPD_INDEL_OUTLIERS.pdf')
 
 
 #
@@ -160,7 +128,7 @@ ggplot(burdens[age > 50 & sample %in% no.mapd.indel.outliers & tissue.origin != 
     expand_limits(y=c(0.5, 2.25)) +
     facet_grid(mut.type~., scale='free_y') +
     ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2))
-dev.print(dev=pdf, file='residualized_mutation_burden_ratios.by_phenotype.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.pdf')
+ggsave(dev=pdf, file='residualized_mutation_burden_ratios.by_phenotype.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.pdf')
 
 
 
@@ -177,7 +145,7 @@ ggplot(burdens[age > 50 & sample %in% no.mapd.indel.outliers & tissue.origin != 
     labs(title='Burden residual', subtitle='MAPD/indel outliers removed, age>50 required') +
     facet_grid(~mut.type) + #, scale='free_y', ncol=2) +
     ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2), aspect.ratio=3/2)
-dev.print(dev=pdf, file='residualized_mutation_burden_ratios.by_tdp43.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.REORDERED.pdf')
+ggsave(dev=pdf, file='residualized_mutation_burden_ratios.by_tdp43.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.REORDERED.pdf')
     #geom_signif(comparisons=list(c('ALS TDP43-', 'ALS TDP43+'), c('FTD TDP43-', 'FTD TDP43+')), margin_top=-0.1, textsize=2.5, size=1/4) +
     #scale_y_continuous(trans='log2', n.breaks=8, label=function(x) round(x,2)) + #, expand=expansion(add=1.10)) +
 
@@ -186,7 +154,7 @@ dev.print(dev=pdf, file='residualized_mutation_burden_ratios.by_tdp43.NO_MAPD_IN
 #
 # 6a. Boxplots comparing denovo SBS96 burdens (residual-adjusted age)
 #
-resids <- meta[fread('combined_residualized_burdens.csv'), , on=.(sample)]
+resids <- meta[fread('../burdens/combined_residualized_burdens.csv'), , on=.(sample)]
 resids[, obs.exp := (1+burden)/(1+expected.burden)]
 ggplot(resids[burden.source=='denovo' & burden.type=='SBS96' & age > 50 & sample %in% no.mapd.indel.outliers & tissue.origin != 'DG' & celltype == 'neuron' & amp == 'PTA'], aes(x=phenotype, y=(1+burden)/(1+expected.burden), fill=phenotype)) +
     geom_boxplot(outlier.shape=NA, col=1, linewidth=0.3) +
@@ -201,7 +169,7 @@ ggplot(resids[burden.source=='denovo' & burden.type=='SBS96' & age > 50 & sample
         step_increase=1/10, margin_top=-0.1, textsize=2.75, size=0.15) +
     labs(title='De novo SBS96 burdens by phenotype', subtitle='MAPD/indel outliers removed, age>50')
     #scale_y_continuous(trans='log2', n.breaks=8, label=function(x) round(x,2))
-dev.print(dev=pdf, 'denovo_sbs96_residualized_burdens_age_matched.NO_MAPD_OUTLIERS_AGE_GT_50.pdf')
+ggsave(dev=pdf, 'denovo_sbs96_residualized_burdens_age_matched.NO_MAPD_OUTLIERS_AGE_GT_50.pdf')
 
 #
 # 6b. Age vs. denovo SBS96 burdens
@@ -221,7 +189,7 @@ p2 <- ggplot(resids[phenotype != 'Control' & burden.source=='denovo' & burden.ty
     facet_grid(burden.subtype~phenotype, scales='free_y') +
     xlab('Age') + ylab('De novo signature burden') + ggtheme + theme(aspect.ratio=1)
 (p1|p2)+plot_layout(guides='collect')
-dev.print(dev=pdf, file='denovo_sbs96_burdens_vs_age_with_control_trend_lines.NO_MAPD_INDEL_OUTLIERS.pdf')
+ggsave(dev=pdf, file='denovo_sbs96_burdens_vs_age_with_control_trend_lines.NO_MAPD_INDEL_OUTLIERS.pdf')
 
 
 
@@ -241,7 +209,7 @@ ggplot(resids[burden.source=='denovo' & burden.type=='ID83_corrected' & age > 50
         step_increase=1/10, margin_top=-0.1, textsize=2.75, size=0.15) +
     labs(title='De novo ID83 burdens by phenotype', subtitle='MAPD/indel outliers removed, age>50, floor set=0.25') +
     scale_y_continuous(trans='log2', n.breaks=8, label=function(x) round(x,2))
-dev.print(dev=pdf, 'denovo_id83_residualized_burdens_age_matched.NO_MAPD_OUTLIERS_AGE_GT_50.pdf')
+ggsave(dev=pdf, 'denovo_id83_residualized_burdens_age_matched.NO_MAPD_OUTLIERS_AGE_GT_50.pdf')
 
 
 #
@@ -253,7 +221,7 @@ ggplot(resids[phenotype != 'Control' & burden.source=='denovo' & burden.type=='I
     geom_point(size=1) +
     facet_grid(burden.subtype~phenotype, scales='free_y') +
     xlab('Age') + ylab('De novo signature burden') + ggtheme + theme(aspect.ratio=1)
-dev.print(dev=pdf, file='denovo_id83_burdens_vs_age_with_control_trend_lines.NO_MAPD_INDEL_OUTLIERS.pdf')
+ggsave(dev=pdf, file='denovo_id83_burdens_vs_age_with_control_trend_lines.NO_MAPD_INDEL_OUTLIERS.pdf')
 
 
 #
@@ -293,7 +261,7 @@ ggplot(class.tab, aes(x=phenotype, y=del2/indel, col=delsig, group=phenotype)) +
     expand_limits(y=c(0,1)) +
     geom_signif(comparisons=list(c('Control', 'ALS'), c('Control', 'FTD'), c('Control', 'Alzheimers')),
         step_increase=1/10, margin_top=-0.25, textsize=2.75, size=0.15, annotation=sprintf('%0.2g', fishertests$p.value))
-dev.print(dev=pdf, file='pink_peak_class_rates_boxplot_fisher_test_pvals.NO_MAPD_OUTLIERS_AGE_GT_50.pdf')
+ggsave(dev=pdf, file='pink_peak_class_rates_boxplot_fisher_test_pvals.NO_MAPD_OUTLIERS_AGE_GT_50.pdf')
 
 
 
@@ -315,7 +283,7 @@ ggplot(recast.resids[sbs.sig=='SBS96B'], aes(x=1+ID83A, y=value, col=phenotype))
     ggtheme + theme(aspect.ratio=1) +
     xlab('ID83A exposure (log-scale)') + ylab('SBS96B signature exposure') +
     labs(title='Correlations between signature exposures', subtitle='No MAPD/indel outliers, no age<50 controls, P-values are lm coefficient Pr(>|t|) values, x=1+ID83A')
-dev.print(dev=pdf, file='correlation_sbs96_vs_id83.pdf')
+ggsave(dev=pdf, file='correlation_sbs96_vs_id83.pdf')
 
 ggplot(recast.resids, aes(x=1+ID83A, y=value, col=phenotype)) +
     geom_point(size=1/2) +
@@ -326,7 +294,7 @@ ggplot(recast.resids, aes(x=1+ID83A, y=value, col=phenotype)) +
     ggtheme + theme(aspect.ratio=1) +
     xlab('ID83A exposure (log-scale)') + ylab('De novo SBS signature exposure') +
     labs(title='Correlations between signature exposures', subtitle='No MAPD/indel outliers, no age<50 controls, P-values are lm coefficient Pr(>|t|) values, x=1+ID83A')
-dev.print(dev=pdf, file='correlation_sbs96_vs_id83.SUPPLEMENTARY.pdf') #, width=6, height=3)
+ggsave(dev=pdf, file='correlation_sbs96_vs_id83.SUPPLEMENTARY.pdf') #, width=6, height=3)
 
 
 #
@@ -351,11 +319,12 @@ will.revcomp = c('GG', 'AA', 'TG', 'AG', 'GA', 'AC')
 # UPDATE: 03/14/2025: add MDA data to the table, we can filter later depending on whether
 # we want to show MDA or not.
 # dinucs in hg19
-dinucs <- fread('dinucs.txt', col.names=c('dn', 'count'))[,.(count=sum(count)),by=revcomp[dn]]
+dinucs <- fread('../external_data/dinucs.txt', col.names=c('dn', 'count'))[,.(count=sum(count)),by=revcomp[dn]]
 colnames(dinucs)[1] <- 'dn'
 dinucs[, phenotype := 'Ref_hg19']
 dinucs[, amp := NA]
 
+muts[, dn := substr(refnt, 2, 3)]
 dinuc.tab <- rbind(melt(dcast(muts[nchar(refnt)-nchar(altnt)==2 & muttype=='indel' & age>50 & sample %in% no.mapd.indel.outliers & tissue.origin != 'DG' & celltype=='neuron'], amp+phenotype ~ revcomp[dn]), id.vars=c('amp','phenotype')), dinucs[, .(amp, phenotype, variable=dn, value=count)])
 
 norm.by.ref <- dinucs[dinuc.tab,,on=.(dn=variable)][,.(dn, obs=value, obs.frac=value/sum(value)),by=.(i.amp,i.phenotype)][,.(amp=i.amp, phenotype=i.phenotype, dn, obs, obs.frac)]
@@ -366,17 +335,13 @@ ggplot(norm.by.ref[amp != 'MDA' & phenotype != 'Ref_hg19'], aes(x=dn, y=obs.frac
     ggtheme +
     xlab('Dinucleotide deletion') + ylab('Fraction of 2 bp deletions') +
     labs(title='Deleted dinucleotides', subtitle='No MAPD/indel outliers, age>50')
-dev.print(dev=pdf, file='dinuc_deletion_fractions.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.pdf')
+ggsave(dev=pdf, file='dinuc_deletion_fractions.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.pdf')
 
 
 
 #
 # 10. 10-mer logo plots
 #
-#devtools::install_github("omarwagih/ggseqlogo")  # if not installed
-library(ggseqlogo)
-library(Biostrings)
-library(BSgenome.Hsapiens.1000genomes.hs37d5)
 
 # note this only makes a 10-mer context around 2bp deletions
 muts[nchar(refnt) - nchar(altnt) == 2, deca := as.character(getSeq(BSgenome.Hsapiens.1000genomes.hs37d5, GRanges(seqnames=chr, ranges=IRanges(start=pos-3, end=pos+6))))]
@@ -395,7 +360,7 @@ ggseqlogo(split(muts.tmp[mutsig != '2:Del:R:0', deca.rc], muts.tmp[mutsig != '2:
     annotate('text', x=5.5, y=1.45, label='Deletion') +
     labs(title='10-mer deletion context around 2 bp deletions', subtitle='First pink peak excluded, age>50, no MAPD/indel outliers') +
     xlab("Local deletion position")
-dev.print(dev=pdf, file='10mer_deletion_context.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.pdf')
+ggsave(dev=pdf, file='10mer_deletion_context.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50.pdf')
 
 
 ########################################################################################
@@ -404,7 +369,7 @@ dev.print(dev=pdf, file='10mer_deletion_context.NO_MAPD_INDEL_OUTLIERS_AGE_GT_50
 #
 ########################################################################################
 
-enrich <- fread('manual_enrichment_analysis/enrichment.csv')
+enrich <- fread('../manual_integrated_enrichment_tables/enrichment.csv')
 
 # quantile based covariates
 q <- enrich[!is.na(QUANTILES) & BINSIZE=='1000']
@@ -456,53 +421,53 @@ b[, mutsig.deltype := fct_recode(muttype, `Aging-related indels`='indel_A_not_2d
 #
 # 11. Show the effect of the MAPD/indel outlier removal and the separate consideration of R0 pink peak
 #
-ggplot(qq[delsig=='positive_high' & !(muttype %in% c('A','indel_A')) & !grepl('_not_', muttype) & datasource==ds], aes(x=quantile, y=enr, col=phenotype, group=interaction(celltype, phenotype2, dataclass, lineclass))) +
-    geom_line(alpha=0.1) +
-    geom_hline(yintercept=1, linewidth=0.25) +
-    facet_grid(sub(pattern='indel_A_', rep='', muttype) ~ interaction(delsig, mapd.outlier), scales='free_y') +
-    stat_summary(aes(group=interaction(celltype,phenotype2)), fun.y=mean, geom='line', linewidth=0.75) +
-    base.theme +
-    scale_y_log10() +
-    labs(title="Quantitative enrichment - MAPD outlier and R0 pink peak effects", subtitle=ds) +
-    ylab('Enrichment (obs/exp, log-scale)')
+#ggplot(qq[delsig=='positive_high' & !(muttype %in% c('A','indel_A')) & !grepl('_not_', muttype) & datasource==ds], aes(x=quantile, y=enr, col=phenotype, group=interaction(celltype, phenotype2, dataclass, lineclass))) +
+    #geom_line(alpha=0.1) +
+    #geom_hline(yintercept=1, linewidth=0.25) +
+    #facet_grid(sub(pattern='indel_A_', rep='', muttype) ~ interaction(delsig, mapd.outlier), scales='free_y') +
+    #stat_summary(aes(group=interaction(celltype,phenotype2)), fun.y=mean, geom='line', linewidth=0.75) +
+    #base.theme +
+    #scale_y_log10() +
+    #labs(title="Quantitative enrichment - MAPD outlier and R0 pink peak effects", subtitle=ds) +
+    #ylab('Enrichment (obs/exp, log-scale)')
 
 
 
 #
 # 12. All enrichment analyses without previous bug (grep vs. grepl) in plotting, compare include MAPD vs. exclude MAPD outliers
 #
-for (ds in unique(qq$datasource)) {
-    print(ds)
-    p <- ggplot(qq[datasource==ds & !(muttype %in% c("A",'indel_A'))], aes(x=quantile, y=enr, col=phenotype, group=interaction(celltype, phenotype2, dataclass, lineclass))) +
-        geom_line(alpha=0.1) +
-        facet_grid(sub(pattern='indel_A_', rep='', muttype) ~ forcats::fct_cross(mapd.outlier, delsig, sep='\n'), scales='free_y') +
-        stat_summary(aes(group=interaction(celltype,phenotype2)), fun.y=mean, geom='line', linewidth=0.75) +
-        base.theme +
-        geom_hline(yintercept=1, linewidth=0.25) +
-        scale_y_log10() +
-        labs(title="Quantitative enrichment", subtitle=ds) +
-        ylab('Enrichment (obs/exp, log-scale)')
-    ggsave(filename=paste0('manual_enrichment_analysis/manual_plots/', ds, '.pdf'), plot=p, height=16, width=11)
-}
+#for (ds in unique(qq$datasource)) {
+    #print(ds)
+    #p <- ggplot(qq[datasource==ds & !(muttype %in% c("A",'indel_A'))], aes(x=quantile, y=enr, col=phenotype, group=interaction(celltype, phenotype2, dataclass, lineclass))) +
+        #geom_line(alpha=0.1) +
+        #facet_grid(sub(pattern='indel_A_', rep='', muttype) ~ forcats::fct_cross(mapd.outlier, delsig, sep='\n'), scales='free_y') +
+        #stat_summary(aes(group=interaction(celltype,phenotype2)), fun.y=mean, geom='line', linewidth=0.75) +
+        #base.theme +
+        #geom_hline(yintercept=1, linewidth=0.25) +
+        #scale_y_log10() +
+        #labs(title="Quantitative enrichment", subtitle=ds) +
+        #ylab('Enrichment (obs/exp, log-scale)')
+    #ggsave(filename=paste0('enrichment_', ds, '.pdf'), plot=p, height=16, width=11)
+#}
 
 
 
 #
 # 13. Same as above, but do not show MAPD+indel outliers
 #
-for (ds in unique(qq$datasource)) {
-    print(ds)
-    p <- ggplot(qq[mapd.outlier=='no_mapd_outliers' & datasource==ds & !(muttype %in% c("A",'indel_A'))], aes(x=quantile, y=enr, col=phenotype, group=interaction(celltype, phenotype2, dataclass, lineclass))) +
-        geom_line(alpha=0.1) +
-        facet_grid(sub(pattern='indel_A_', rep='', muttype) ~ forcats::fct_cross(mapd.outlier, delsig, sep='\n'), scales='free_y') +
-        stat_summary(aes(group=interaction(celltype,phenotype2)), fun.y=mean, geom='line', linewidth=0.75) +
-        base.theme +
-        geom_hline(yintercept=1, linewidth=0.25) +
-        scale_y_log10() +
-        labs(title="Quantitative enrichment", subtitle=ds) +
-        ylab('Enrichment (obs/exp, log-scale)')
-    ggsave(filename=paste0('manual_enrichment_analysis/manual_plots/', ds, '.NO_MAPD_INDEL_OUTLIERS.pdf'), plot=p, height=16, width=11)
-}
+#for (ds in unique(qq$datasource)) {
+    #print(ds)
+    #p <- ggplot(qq[mapd.outlier=='no_mapd_outliers' & datasource==ds & !(muttype %in% c("A",'indel_A'))], aes(x=quantile, y=enr, col=phenotype, group=interaction(celltype, phenotype2, dataclass, lineclass))) +
+        #geom_line(alpha=0.1) +
+        #facet_grid(sub(pattern='indel_A_', rep='', muttype) ~ forcats::fct_cross(mapd.outlier, delsig, sep='\n'), scales='free_y') +
+        #stat_summary(aes(group=interaction(celltype,phenotype2)), fun.y=mean, geom='line', linewidth=0.75) +
+        #base.theme +
+        #geom_hline(yintercept=1, linewidth=0.25) +
+        #scale_y_log10() +
+        #labs(title="Quantitative enrichment", subtitle=ds) +
+        #ylab('Enrichment (obs/exp, log-scale)')
+    #ggsave(filename=paste0('enrichment_', ds, '.NO_MAPD_INDEL_OUTLIERS.pdf'), plot=p, height=16, width=11)
+#}
 
 
 #
@@ -517,7 +482,7 @@ ggplot(qq[mapd.outlier=='no_mapd_outliers' & datasource=='gtex_expression' & del
     scale_y_log10() +
     labs(title="Quantitative enrichment: indel subtypes vs. GTEx expression", subtitle='Thin lines: individual brain tissues, thick lines: cross-brain tissue average') +
     xlab("Gene expression quantile") + ylab("Indel enrichment (obs / exp, log-scale)")
-dev.print(dev=pdf, file='enrichment_gtex_expression_2x2.pdf')
+ggsave(dev=pdf, file='enrichment_gtex_expression_2x2.pdf')
 
 #
 # 13b. MAIN FIGURE panels: 2x2 table of enrichment vs. GTEx expression, but no per-tissue thin lines
@@ -531,7 +496,7 @@ ggplot(qq[mapd.outlier=='no_mapd_outliers' & datasource=='gtex_expression' & del
     scale_y_log10() +
     labs(title="Quantitative enrichment: indel subtypes vs. GTEx expression", subtitle='Only cross-brain-tissue averages to emphasize positive trends') +
     xlab("Gene expression quantile") + ylab("Indel enrichment (obs / exp, log-scale)")
-dev.print(dev=pdf, file='enrichment_gtex_expression_2x2.NO_TISSUE_SPECIFIC_LINES.pdf')
+ggsave(dev=pdf, file='enrichment_gtex_expression_2x2.NO_TISSUE_SPECIFIC_LINES.pdf')
 
 
 #
@@ -547,7 +512,7 @@ ggplot(qq[mapd.outlier=='no_mapd_outliers' & datasource=='gtex_expression' & lin
     scale_y_log10() +
     labs(title="Quantitative enrichment: indel subtypes vs. GTEx expression", subtitle='Only PFC (BA9) GTEx expression data') +
     xlab("Gene expression quantile") + ylab("Indel enrichment (obs / exp, log-scale)")
-dev.print(dev=pdf, file='enrichment_gtex_expression_2x2.JUST_BA9_LINE.pdf')
+ggsave(dev=pdf, file='enrichment_gtex_expression_2x2.JUST_BA9_LINE.pdf')
 
 
 #
@@ -563,7 +528,7 @@ ggplot(qq[mapd.outlier=='no_mapd_outliers' & datasource=='gtex_expression' & lin
     scale_y_log10() +
     labs(title="Quantitative enrichment: indel subtypes vs. GTEx expression", subtitle='Only PFC (BA9) GTEx expression data') +
     xlab("Gene expression quantile") + ylab("Indel enrichment (obs / exp, log-scale)")
-dev.print(dev=pdf, file='enrichment_gtex_expression_2x2.JUST_BA9_LINE.3_PANELS_ONLY.pdf')
+ggsave(dev=pdf, file='enrichment_gtex_expression_2x2.JUST_BA9_LINE.3_PANELS_ONLY.pdf')
 
 #
 # 13e.2. MAIN FIGURE panels: enrichment vs. GTEx expression, but using only the PFC (BA9)
@@ -597,7 +562,7 @@ ggplot(qqq[mapd.outlier=='no_mapd_outliers' & datasource=='scrnaseq' & lineclass
 
     #geom_text_repel(aes(label=sapply(pmax(0, floor(-log10(pval))-1), function(i) paste(rep('*', i), collapse=''))), segment.size=0.25, min.segment.length=0, family='mono') #, box.padding=0.3)
     #geom_text(aes(label=sapply(pmax(0, floor(-log10(pval))-1), function(i) paste(rep('*', i), collapse=''))), nudge_y=1/50)
-dev.print(dev=pdf, file='enrichment_scrnaseq.JUST_EXC_NEU.NO_SEPARATION_OF_POS_AND_NEG.SIGNIF_NOT_BY_STARS.SOLID_LINE_FOR_DISEASE.pdf')
+ggsave(dev=pdf, file='enrichment_scrnaseq.JUST_EXC_NEU.NO_SEPARATION_OF_POS_AND_NEG.SIGNIF_NOT_BY_STARS.SOLID_LINE_FOR_DISEASE.pdf')
 
 
 
@@ -618,7 +583,7 @@ ggplot(qqq[mapd.outlier=='no_mapd_outliers' & !(datasource %in% c('repliseq', 's
     scale_y_log10() +
     labs(title="Quantitative enrichment: indel subtypes", subtitle='Thin lines: separate marks or cell types; thick lines: average of thin lines') +
     xlab("Covariate quantile (higher = more transcriptional activity)") + ylab("Indel enrichment (obs / exp, log-scale)")
-dev.print(dev=pdf, file='enrichment_supplement_quantitative.pdf')
+ggsave(dev=pdf, file='enrichment_supplement_quantitative.pdf')
 
 
 
@@ -645,7 +610,7 @@ ggplot(qqq[mapd.outlier=='no_mapd_outliers' & !(datasource %in% c('repliseq', 's
     #labs(title="Quantitative enrichment: indel subtypes") +
     #stat_summary(aes(group=interaction(fct_drop(mutsig.deltype))), fun.y=mean, geom='line', linewidth=0.75) +
     #geom_text(aes(label=sapply(pmax(0, floor(-log10(pval))-1), function(i) paste(rep('*', i), collapse=''))), nudge_y=1/50) +
-dev.print(dev=pdf, file='enrichment_supplement_quantitative.SELECTED_TRACKS_WITH_PVALUES.NO_ASTERISKS_FOR_PVALUES.pdf')
+ggsave(dev=pdf, file='enrichment_supplement_quantitative.SELECTED_TRACKS_WITH_PVALUES.NO_ASTERISKS_FOR_PVALUES.pdf')
 
 
 #
@@ -671,13 +636,12 @@ ggplot(bb, aes(x=quantile, y=enr, fill=mutsig.deltype)) +
     geom_text(aes(label=sapply(pmax(0, floor(-log10(pval))-1), function(i) paste(rep('*', i), collapse=''))), position=position_dodge(width=0.9)) +
     theme(axis.text.x=element_text(angle=90, vjust=1/2, hjust=1)) +
     xlab(element_blank()) + ylab('Indel enrichment (obs/exp, log-scale)')
-dev.print(dev=pdf, file='enrichment_supplement_bed_regions.SELECTED_TRACKS_WITH_PVALUES.pdf')
+ggsave(dev=pdf, file='enrichment_supplement_bed_regions.SELECTED_TRACKS_WITH_PVALUES.pdf')
 
 
 #
 # 14. Indel size distribution plot
 #
-muts <- meta[fread('tables/all___FILTERED_mut___any.csv'),, on=.(sample)]
 
 ggplot(muts[muttype == 'indel' & sample %in% no.mapd.indel.outliers & tissue.origin != 'DG' & celltype == 'neuron' & amp == 'PTA' & abs(nchar(refnt)-nchar(altnt))<20], aes(x=nchar(altnt)-nchar(refnt), col=phenotype, fill=phenotype)) +
     geom_bar(width=1/20) +
@@ -686,14 +650,14 @@ ggplot(muts[muttype == 'indel' & sample %in% no.mapd.indel.outliers & tissue.ori
     ylab('Number of sIndels') + xlab('Indel size') +
     labs(title='Indel sizes', subtitle='PTA neurons only, |size|<20 bp') +
     ggtheme + theme(aspect.ratio=2/3)
-dev.print(dev=pdf, file='indel_size_distribution.NOT_RIDGE_PLOT.pdf')
+ggsave(dev=pdf, file='indel_size_distribution.NOT_RIDGE_PLOT.pdf')
 
 
 
 #
 # 15. De novo SBS signatures
 #
-sbs.sigs <- fread('mutsigs/sigprofilerextractor/all/SBS96/Most_Stab_Sigs/signatures.csv')
+sbs.sigs <- fread('../mutsigs/sigprofilerextractor/all/SBS96/Most_Stab_Sigs/signatures.csv')
 # convert COSMIC format to SCAN2 matrix format
 sbs.sigs.mat <- as.matrix(sbs.sigs[,-1],
     rownames=sbs.sigs[, paste0(substr(MutationType,1,1), substr(MutationType,3,3), substr(MutationType,7,7), ':', substr(MutationType,3,5))])[names(table(sbs96(c()))),]
@@ -705,7 +669,7 @@ dev.print(dev=pdf, file='de_novo_sbs96_signatures.pdf')
 #
 # 16. De novo ID signatures
 #
-id.sigs <- fread('mutsigs/sigprofilerextractor/all/ID83_corrected/Most_Stab_Sigs/signatures.csv')
+id.sigs <- fread('../mutsigs/sigprofilerextractor/all/ID83_corrected/Most_Stab_Sigs/signatures.csv')
 # convert COSMIC format to SCAN2 matrix format
 id.sigs.mat <- as.matrix(id.sigs, rownames=1)[names(table(id83(c()))),]
 # cbind(., 0) is just a trick to get the SBS and ID plots to look similar. R's layout
@@ -745,8 +709,9 @@ dev.print(dev=pdf, file='id83_spectra_neg_vs_pos.pdf')
 fpr.per.mb.snv=0.01313788
 fpr.per.mb.indel=0.0007298824
 
-summary.objects <- list.files(pattern='.*.rda', path='scan2/summary_objects', full.name=T)
+summary.objects <- list.files(pattern='.*.rda', path='../scan2/summary_objects', full.name=T)
 
+reload=TRUE
 if (reload) {
     per.cell.stats <- rbindlist(lapply(summary.objects, function(fn) {
         print(fn)
@@ -799,7 +764,7 @@ if (reload) {
 p1 <- ggplot(per.cell.stats[sample %in% no.mapd.indel.outliers & is.na(muttype)], aes(x=group, y=value, fill=phenotype)) + facet_wrap(~fct_recode(variable, MAPD='mapd', `Seq. depth`='sequencing.depth'), scale='free_y', switch='y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_boxplot(outlier.shape=NA) + geom_jitter(size=1/5, width=0.2) + xlab(element_blank()) + ylab(element_blank()) + theme(strip.placement='outside')
 p2 <- ggplot(per.cell.stats[sample %in% no.mapd.indel.outliers & variable == 'filtered.calls'], aes(x=group, weight=value, fill=phenotype)) + facet_wrap(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + ylab('Mutation calls')
 (p1|p2)+plot_layout(guides = "collect")&theme(aspect.ratio=1)
-dev.print(dev=pdf, file='per_cell_stats.global.WITH_MDA.pdf')
+ggsave(dev=pdf, file='per_cell_stats.global.WITH_MDA.pdf')
 
 
 #
@@ -808,7 +773,7 @@ dev.print(dev=pdf, file='per_cell_stats.global.WITH_MDA.pdf')
 p1 <- ggplot(per.cell.stats[sample %in% no.mapd.indel.outliers & amp == 'PTA' & is.na(muttype)], aes(x=group, y=value, fill=phenotype)) + facet_wrap(~fct_recode(variable, MAPD='mapd', `Seq. depth`='sequencing.depth'), scale='free_y', switch='y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_boxplot(outlier.shape=NA) + geom_jitter(size=1/5, width=0.2) + xlab(element_blank()) + ylab(element_blank()) + theme(strip.placement='outside')
 p2 <- ggplot(per.cell.stats[sample %in% no.mapd.indel.outliers & amp == 'PTA' & variable == 'filtered.calls'], aes(x=group, weight=value, fill=phenotype)) + facet_wrap(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + ylab('Mutation calls')
 (p1|p2)+plot_layout(guides = "collect") & theme(aspect.ratio=1)
-dev.print(dev=pdf, file='per_cell_stats.global.pdf')
+ggsave(dev=pdf, file='per_cell_stats.global.pdf')
 
 #
 # 18c. Aggregate stats, MDA columns excluded, age matched > 50
@@ -816,7 +781,7 @@ dev.print(dev=pdf, file='per_cell_stats.global.pdf')
 p1 <- ggplot(per.cell.stats[age > 50 & sample %in% no.mapd.indel.outliers & amp == 'PTA' & is.na(muttype)], aes(x=group, y=value, fill=phenotype)) + facet_wrap(~fct_recode(variable, MAPD='mapd', `Seq. depth`='sequencing.depth'), scale='free_y', switch='y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_boxplot(outlier.shape=NA) + geom_jitter(size=1/5, width=0.2) + xlab(element_blank()) + ylab(element_blank()) + theme(strip.placement='outside')
 p2 <- ggplot(per.cell.stats[age > 50 & sample %in% no.mapd.indel.outliers & amp == 'PTA' & variable == 'filtered.calls'], aes(x=group, weight=value, fill=phenotype)) + facet_wrap(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + ylab('Mutation calls')
 (p1|p2)+plot_layout(guides = "collect") & theme(aspect.ratio=1)
-dev.print(dev=pdf, file='per_cell_stats.global.AGE_MATCHED_DO_NOT_USE_BECAUSE_NEW_BA6_NOT_INCLUDED.pdf')
+ggsave(dev=pdf, file='per_cell_stats.global.AGE_MATCHED_DO_NOT_USE_BECAUSE_NEW_BA6_NOT_INCLUDED.pdf')
 
 
 #
@@ -834,7 +799,7 @@ p2 <- ggplot(per.cell.stats[sample %in% no.mapd.indel.outliers & amp == 'PTA' & 
 p3 <- ggplot(fp.tab[amp == 'PTA' & variable=='catalog.fdr'], aes(x=group, weight=value, fill=phenotype)) + facet_grid(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + geom_text(stat='count', aes(label=after_stat(round(count,2))), nudge_y=0.006, size=3) + ylab('Catalog-wide FDR')
 
 (free(p1+guides(fill='none')) + (p2/p3 + plot_layout(axes='collect')))
-dev.print(dev=pdf, file='per_cell_stats.pdf')
+ggsave(dev=pdf, file='per_cell_stats.pdf')
 
 
 #
@@ -851,7 +816,7 @@ p2 <- ggplot(per.cell.stats[age > 50 & sample %in% no.mapd.indel.outliers & amp 
 p3 <- ggplot(fp.tab[age > 50 & amp == 'PTA' & variable=='catalog.fdr'], aes(x=group, weight=value, fill=phenotype)) + facet_grid(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + geom_text(stat='count', aes(label=after_stat(round(count,2))), nudge_y=0.006) + ylab('Catalog-wide FDR')
 
 (free(p1+guides(fill='none')) + (p2/p3 + plot_layout(axes='collect')))
-dev.print(dev=pdf, file='per_cell_stats.AGE_MATCHED.pdf')
+ggsave(dev=pdf, file='per_cell_stats.AGE_MATCHED.pdf')
 
 
 per.cell.stats[variable=='mapd',.(sample,mapd=value)][resids[burden.source=='denovo' & burden.type=='SBS96' & burden.subtype=='SBS96B', .(sample, burden)],,on=.(sample)]
@@ -873,7 +838,7 @@ ggplot(qc.tab, aes(x=mapd, y=burden/expected.burden, col=phenotype)) +
     facet_grid(burden.subtype~phenotype+amp+celltype, scale='free', switch='y') +
     theme(aspect.ratio=1, strip.placement='outside') +
     ylab('Obs/exp') 
-dev.print(dev=pdf, file='mapd_vs_sbsB_and_id83A.pdf')
+ggsave(dev=pdf, file='mapd_vs_sbsB_and_id83A.pdf')
 
 #
 # 21b. Split by deletion signature, colors according to donor
@@ -885,7 +850,7 @@ ggplot(qc.tab, aes(x=mapd, y=burden/expected.burden, col=phenotype)) +
     facet_grid(burden.subtype+delsig~phenotype+amp+celltype, scale='free', switch='y') +
     theme(aspect.ratio=1, strip.placement='outside') +
     ylab('Obs/exp') 
-dev.print(dev=pdf, file='mapd_vs_sbsB_and_id83A.BY_DELSIG_AND_DONOR.pdf')
+ggsave(dev=pdf, file='mapd_vs_sbsB_and_id83A.BY_DELSIG_AND_DONOR.pdf')
 
 
 
@@ -899,8 +864,8 @@ disease.related <- c(
 #
 # 22. COSMIC ID4 - just plotting ID4 from COSMIC
 #
-plot.id83(as.matrix(fread('v3.3_ID4_PROFILE.txt'), rownames=1))
-dev.print(dev=pdf, file='cosmic_id4.pdf')
+plot.id83(as.matrix(fread('../external_data/v3.3_ID4_PROFILE.txt'), rownames=1))
+ggsave(dev=pdf, file='cosmic_id4.pdf')
 
 
 #
@@ -915,19 +880,18 @@ muts[rescue == FALSE & sample %in% no.mapd.indel.outliers & amp=='PTA', table(mu
 #
 # 24. COSMIC SBS30 vs. ID4 comparison
 #
-#   To sidestep any issues about SBS-B only surfacing from de novo extraction
-#   of PTA+MDA cells, just do direct COSMIC fitting with SigProfilerAssignment.
+#   To sidestep any reservations about de novo extraction>
 #
-spa <- rbind(
-    melt(fread('manual_sigprofiler_assignment/all/Assignment_Solution/Activities/Assignment_Solution_Activities.txt'), id.vars=1),
-    melt(fread('manual_sigprofiler_assignment/all_ID83_corrected//Assignment_Solution/Activities/Assignment_Solution_Activities.txt'), id.vars=1)
-)
-colnames(spa)[1] <- 'sample'
-spa <- meta[spa,,on=.(sample)]
-spa[sample %in% no.mapd.indel.outliers, sig.lump := fct_lump_min(variable, min=200, w=value)]
-# Shows ID4+1 vs SBS30
-ggplot(dcast(spa[age > 50 & celltype=='neuron' & amp =='PTA' & sample %in% no.mapd.indel.outliers], sample+amp+celltype+phenotype+age ~ variable, value.var='value'), aes(x=ID4+1, y=SBS30, col=phenotype)) + geom_point() + geom_smooth(method='lm', se=F) + scale_x_log10()
-
+#spa <- rbind(
+    #melt(fread('manual_sigprofiler_assignment/all/Assignment_Solution/Activities/Assignment_Solution_Activities.txt'), id.vars=1),
+    #melt(fread('manual_sigprofiler_assignment/all_ID83_corrected//Assignment_Solution/Activities/Assignment_Solution_Activities.txt'), id.vars=1)
+#)
+#colnames(spa)[1] <- 'sample'
+#spa <- meta[spa,,on=.(sample)]
+#spa[sample %in% no.mapd.indel.outliers, sig.lump := fct_lump_min(variable, min=200, w=value)]
+## Shows ID4+1 vs SBS30
+#ggplot(dcast(spa[age > 50 & celltype=='neuron' & amp =='PTA' & sample %in% no.mapd.indel.outliers], sample+amp+celltype+phenotype+age ~ variable, value.var='value'), aes(x=ID4+1, y=SBS30, col=phenotype)) + geom_point() + geom_smooth(method='lm', se=F) + scale_x_log10()
+#
 
 # 25. Fraction of 2bp dels among all indels
 muts.new.ol.phenotype <- copy(muts)[, phenotype := fct_relevel(factor(ifelse(celltype=='oligo', 'Control oligo', ifelse(celltype=='neuron' & phenotype=='Control', 'Control neuron', as.character(phenotype)))), c('Control neuron', 'Control oligo', 'ALS', 'FTD', 'Alzheimers'))]
@@ -940,7 +904,7 @@ fig3b <- ggplot(muts.new.ol.phenotype[age > 50 & muttype == 'indel' & sample %in
     expand_limits(y=0:1) +
     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
     geom_signif(comparisons=list(c('Control neuron', 'Control oligo'), c('Control neuron', 'ALS'), c('Control neuron', 'FTD'), c('Control neuron', 'Alzheimers')), margin_top=-0.35, textsize=2.5, step_increase=1/10, size=1/4)
-dev.print(dev=pdf, file='indel_2_bp_deletion_fraction_and_stats.pdf')
+ggsave(dev=pdf, file='indel_2_bp_deletion_fraction_and_stats.pdf')
 
 
 #
@@ -975,7 +939,7 @@ ggplot(class.tab2, aes(x=phenotype, weight=rate, fill=phenotype, label=paste(`ID
     expand_limits(y=c(0,1)) +
     geom_signif(aes(y=rate), comparisons=list(c('Control neuron', 'Control oligo'), c('Control neuron', 'ALS'), c('Control neuron', 'FTD'), c('Control neuron', 'Alzheimers')),
         step_increase=1/12, margin_top=-0.21, textsize=2.75, size=0.15, annotation=sprintf('%0.2g', fishertests2$p.value), position=position_nudge(y=-0.05))
-dev.print(dev=pdf, file='rate_of_id4_positive_cells_per_phenotype.pdf')
+ggsave(dev=pdf, file='rate_of_id4_positive_cells_per_phenotype.pdf')
 
 
 #
@@ -992,7 +956,7 @@ ggplot(fishertests2, aes(y=fct_rev(pheno2), x=odds.ratio.haldane.anscombe, label
     geom_vline(xintercept=1, linetype=2) +
     ylab(element_blank()) +
     labs(title='Odds ratios and 95% conf ints', subtitle='Haldane-Anscombe correction (+0.5) to deal\nwith 0 oligo counts, no MAPD/indel outliers')
-dev.print(dev=pdf, file='rate_of_id4_positive_cells_per_phenotype.ODDS_RATIO.pdf')
+ggsave(dev=pdf, file='rate_of_id4_positive_cells_per_phenotype.ODDS_RATIO.pdf')
 
 
 
@@ -1029,11 +993,11 @@ fig3b <- ggplot(muts.new.ol.phenotype[age > 50 & muttype == 'indel' & sample %in
 
 
 # C. De novo spectra and COSMIC ID4 for reference
-id.sigs <- fread('mutsigs/sigprofilerextractor/all/ID83_corrected/Most_Stab_Sigs/signatures.csv')
+id.sigs <- fread('../mutsigs/sigprofilerextractor/all/ID83_corrected/Most_Stab_Sigs/signatures.csv')
 # convert COSMIC format to SCAN2 matrix format
 id.sigs.mat <- as.matrix(id.sigs, rownames=1)[names(table(id83(c()))),]
 # Add COSMIC ID4
-id.sigs.mat <- cbind(id.sigs.mat, as.matrix(fread('v3.3_ID4_PROFILE.txt'), rownames=1))
+id.sigs.mat <- cbind(id.sigs.mat, as.matrix(fread('../external_data/v3.3_ID4_PROFILE.txt'), rownames=1))
 colnames(id.sigs.mat) <- c('ID-A', 'ID-B', 'COSMIC ID4')
 fig3c <- wrap_elements(panel=~plot.id83(id.sigs.mat, show.detailed.types=F, uniform.y.axis=F, las=2), clip=FALSe)
 
@@ -1099,9 +1063,9 @@ fig3f <- plot.id83(sapply(muts2.split, function(df) table(id83(df$mutsig))), max
 #
 # 28. Gel single strand smear intensity quantitation (ImageJ) by phenotype
 #
-dmeta <- fread('metadata/immutable_donor_metadata.csv')
+dmeta <- fread('../metadata/immutable_donor_metadata.csv')
 dmeta[, phenotype := factor(fct_recode(phenotype, AD='Alzheimers'), c('Control', 'FTD', 'AD'))]
-ssi <- dmeta[fread('single_strand_intensity_gel_values.csv'), , on=.(donor)]
+ssi <- dmeta[fread('../gel_electrophoresis/single_strand_intensity_gel_values.csv'), , on=.(donor)]
 ctrl.mean <- ssi[phenotype == 'Control', mean(intensity)]
 ssi[, intensity := intensity / ctrl.mean]
 
@@ -1111,7 +1075,7 @@ ggplot(ssi, aes(x=phenotype, y=intensity, fill=phenotype)) +
     xlab(element_blank()) + ylab('Single-strand genomic breaks\n(relative intensity, AU)') +
     geom_signif(comparisons=list(c('Control', 'FTD'), c('Control', 'AD')), step_increase=1/12) +
     scale_y_continuous(expand=expansion(add=c(1, 1.)))
-dev.print(dev=pdf, file='single_strand_break_intensity_compare_phenotypes.pdf')
+ggsave(dev=pdf, file='single_strand_break_intensity_compare_phenotypes.pdf')
 
 # alternative: do a barplot of the mean with jittered points
 #geom_bar(stat='summary', fun=mean)
@@ -1126,7 +1090,7 @@ ggplot(resids[burden.type=='ID83_corrected' & burden.subtype=='ID83A' & burden.s
     ggpmisc::stat_fit_glance(method='lm', aes(label=sprintf('P = %0.2g, R^2 = %0.2g', after_stat(p.value), after_stat(r.squared))), size=3.5, label.x='right', label.y='bottom') +
     xlab('ID-A exposure') +
     ylab('Single-strand genomic breaks\n(relative intensity, AU)')
-dev.print(dev=pdf, file='single_strand_break_intensity_vs_ID-A_exposure.pdf')
+ggsave(dev=pdf, file='single_strand_break_intensity_vs_ID-A_exposure.pdf')
 
 
 
@@ -1145,7 +1109,7 @@ ggplot(ssi, aes(x=age, y=intensity, col=fct_drop(phenotype), shape=ida.high)) +
     xlab('Age') +
     ylab('Single-strand genomic breaks\n(relative intensity, AU)') +
     scale_shape_manual(values=c(16,17))
-dev.print(dev=pdf, file='single_strand_break_intensity_vs_age.pdf')
+ggsave(dev=pdf, file='single_strand_break_intensity_vs_age.pdf')
 
 
 
@@ -1170,7 +1134,7 @@ fwrite(table2, file='table2.csv', quote=FALSE)
 # Supplemental Table 3 - detailed list of single cells with metadata
 #
 
-table3 <- fread('metadata/sample_metadata.csv')
+table3 <- fread('../metadata/sample_metadata.csv')
 table3 <- table3[amp != 'bulk']   # remove bulk IDs
 # rename to match language in text/figures
 table3[, delsig := ifelse(delsig=='negative', 'ID-A normal', 'ID-A high')]
@@ -1186,7 +1150,7 @@ fwrite(table3, file='table3.csv')
 # Supplemental Table 4 - unfiltered mutation call set. Filtered calls are marked
 # N.B requires table3 to reassign sample names to numerical IDs
 #
-table4 <- fread('tables/all___UNFILTERED_mut___any.csv')
+table4 <- fread('../tables/all___UNFILTERED_mut___any.csv')
 table4 <- table4[chr %in% 1:22]    # remove X, Y calls
 table4 <- table4[rescue == FALSE]  # no mutational signature rescue
 
