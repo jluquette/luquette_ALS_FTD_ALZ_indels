@@ -813,7 +813,7 @@ fp.tab <- melt(fp.tab, id.vars=1:5, measure.vars='catalog.fdr')
 
 p2 <- ggplot(per.cell.stats[age > 50 & sample %in% no.mapd.indel.outliers & amp == 'PTA' & variable=='fdr'], aes(x=group, y=value, fill=phenotype)) + facet_grid(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_boxplot(outlier.shape=NA) + geom_jitter(size=1/2, width=0.2) + ylab("False discovery rate")#xlab(element_blank()) + theme(strip.placement='outside') + ylab(element_blank())
 
-p3 <- ggplot(fp.tab[age > 50 & amp == 'PTA' & variable=='catalog.fdr'], aes(x=group, weight=value, fill=phenotype)) + facet_grid(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + geom_text(stat='count', aes(label=after_stat(round(count,2))), nudge_y=0.006) + ylab('Catalog-wide FDR')
+p3 <- ggplot(fp.tab[amp == 'PTA' & variable=='catalog.fdr'], aes(x=group, weight=value, fill=phenotype)) + facet_grid(~muttype, scale='free_y') + ggtheme + theme(axis.text.x=element_text(angle=90, hjust=1, vjust=1/2)) + geom_bar() + xlab(element_blank()) + geom_text(stat='count', aes(label=after_stat(round(count,2))), nudge_y=0.006) + ylab('Catalog-wide FDR')
 
 (free(p1+guides(fill='none')) + (p2/p3 + plot_layout(axes='collect')))
 ggsave(dev=pdf, file='per_cell_stats.AGE_MATCHED.pdf')
@@ -999,7 +999,7 @@ id.sigs.mat <- as.matrix(id.sigs, rownames=1)[names(table(id83(c()))),]
 # Add COSMIC ID4
 id.sigs.mat <- cbind(id.sigs.mat, as.matrix(fread('../external_data/v3.3_ID4_PROFILE.txt'), rownames=1))
 colnames(id.sigs.mat) <- c('ID-A', 'ID-B', 'COSMIC ID4')
-fig3c <- wrap_elements(panel=~plot.id83(id.sigs.mat, show.detailed.types=F, uniform.y.axis=F, las=2), clip=FALSe)
+fig3c <- wrap_elements(panel=~plot.id83(id.sigs.mat, show.detailed.types=F, uniform.y.axis=F, las=2), clip=FALSE)
 
 
 
