@@ -36,6 +36,8 @@ module scan2_call_$donor:
 
 use rule scan2_call_mutations from scan2_call_${donor} as scan2_call_mutations_${donor} with:
     output:
+        dpmatrix=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz"),
+        dpmatrixidx=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz.tbi"),
         rdas=protected(expand('scan2/{{donor}}/scan2/call_mutations/{sample}/scan2_object.rda',
             sample=bams['${donor}']['single_cell'].keys()))
 EOF
