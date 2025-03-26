@@ -19,8 +19,10 @@ if ('snakemake' %in% ls()) {
 
 
 args <- commandArgs(trailingOnly=T)
-if (length(args) != 3)
+if (length(args) != 3) {
+    cat("This script supports correcting ID83 and ID415 matrices. For ID415, which is just ID83*5 for 5 transcribed strand types, the ID83 correction is applied to each of the 5 strand states separately.\n")
     stop(sprintf("usage: make_input_id83.r input.all scan2_id83_correction.csv output.csv"))
+}
 
 infile <- args[1]
 scan2.id83.correction.file <- args[2]
@@ -36,7 +38,17 @@ setkey(scan2.id83.correction, muttype)
 
 mat <- fread(infile, check.names=FALSE)
 
-if (!all(sort(mat$MutationType) == sort(scan2.id83.correction$muttype))) {
+first.two.chars <- substr(mat$MutationType,1,2)
+is.id415 <- FALSE
+if (setequal(first.two.chars, c('T:', 'U:', 'B:', 'Q:', 'N:'))) {
+    is.id415 <- TRUE
+    cat("Detected ID415 in input matrix. First two characters of channels are:")
+    print(first.two.chars)
+}
+
+# In the ID415 case, remove the first 2 characters and uniquify before matching
+if (!setequal(mat$MutationType, scan2.id83.correction$muttype) &
+    (is.id415 & !setequal(substr(mat$MutationType, 3, nchar(mat$MutationType)), scan2.id83.correction$muttype))) {
     cat("mat$MutationType:\n")
     print(mat$MutationType)
     cat("scan2.id83.correction$muttype\n")
@@ -45,7 +57,12 @@ if (!all(sort(mat$MutationType) == sort(scan2.id83.correction$muttype))) {
 }
 
 # reorder (setkey)
-scan2.id83.correction <- scan2.id83.correction[mat$MutationType]
+# For ID415, each channel will be duplicated 5 times to correspond to T: U: B: Q: N:
+if (is.id415) {
+    scan2.id83.correction <- scan2.id83.correction[substr(mat$MutationType, 3, nchar(mat$MutationType))]
+} else {
+    scan2.id83.correction <- scan2.id83.correction[mat$MutationType]
+}
 
 for (i in 2:ncol(mat)) {
     total <- sum(mat[[i]], na.rm=TRUE)

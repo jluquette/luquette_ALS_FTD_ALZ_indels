@@ -61,6 +61,34 @@ rule make_gtex_signal_bigwig:
         "scripts/convert_gtex_expression_to_bigwig.R"
 
 
+
+# Simultaneously makes the gene length and adjusted gene length bigwigs
+# "Adjusted" length means that a log10(length)~log10(expression) regression
+# is run and the residuals are used as an "adjusted length". This accounts for
+# correlation between width and length, which might drive a signal against length.
+#
+# This requires selecting a tissue against which the regression can be run.
+# [not really, we could use the average expression across tissues, which is more
+#  stable than per-tissue expression. but we don't for now.]
+rule make_gene_length_bigwigs:
+    input:
+        gtf="data/gtex/gencode.v26lift37.annotation.GTEX_COLLAPSED.genes_only.gtf",
+        gct="data/gtex/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct"
+    output:
+        raw_bigwig="data/gene_length/bigwig/length_raw.{tissue}___{transcript_type}.bigwig",
+        adj_bigwig="data/gene_length/bigwig/length_adj.{tissue}___{transcript_type}.bigwig",
+        plot="data/gene_length/bigwig/regression_plots.{tissue}___{transcript_type}.pdf"
+    log:
+        "data/gene_length/bigwig/{tissue}___{transcript_type}.log"
+    params:
+        tissue="{tissue}",
+        transcript_type="{transcript_type}"
+    resources:
+        mem_mb=32000
+    script:
+        'scripts/make_gene_length_bigwig.R'
+
+
 rule convert_seurat_object_to_table:
     input:
         rds='scrnaseq/{scrnaseq_object}.rds'
@@ -382,9 +410,11 @@ rule download_gtex_expression:
     shell:
         """
         wget -O {output}.gz \
-            "https://storage.googleapis.com/gtex_analysis_v8/rna_seq_data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"
+            "https://storage.googleapis.com/adult-gtex/bulk-gex/v8/rna-seq/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"
         gunzip -c {output}.gz > {output}
         """
+        # old - doesn't work as of jun 14 2024
+        #"https://storage.googleapis.com/gtex_analysis_v8/rna_seq_data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"
 
 
 rule download_ucsc_conservation:
@@ -614,24 +644,6 @@ rule make_gencode_gene_bed_protein_coding:
             | sed -e 's/gene_name //' \
             | tr -d '"' > {output}
         """
-
-
-'''
-ruleorder: subset_by_mutsig > copy_inputs
-rule subset_by_mutsig:
-    input:
-        rda="input/{celltype}___{filetype}___{qualtype}.{fileext}"
-    output:
-        rda="input/{celltype}_{sig}___{filetype}___{qualtype}.{fileext}"
-    log:
-        "input/{celltype}_{sig}___{filetype}___{qualtype}.{fileext}.log"
-    params:
-        sig='{sig}'
-    resources:
-        mem_mb=12000
-    script:
-        "scripts/subset_by_mutsig.R"
-'''
 
 
 rule machado2022_sbsblood_wget:

@@ -4,20 +4,52 @@
 # directly from tables (such as previous SCAN2 analyses).
 rule collect_mut_burdens:
     input:
-        objects=lambda wildcards: [ config['scan2_summary_object'][s] for s in config['groups'][wildcards.group] ],
-        meta='metadata/sample_metadata.csv'
+        #objects=lambda wildcards: [ config['scan2_summary_object'][s] for s in config['groups'][wildcards.group] ],
+        objects=[ config['scan2_summary_object'][s] for s in config['groups']['all'] ],
+        meta='metadata/sample_metadata.csv',
+        filtered_muts='tables/all___FILTERED_mut___any.csv'
     output:
-        csv="aging_rates/{group}___mutburden___{qualtype}.csv"
-    params:
-        muttype=lambda wildcards: 'indel' if wildcards.qualtype.startswith('indel_') else 'snv',
-    resources:
-        mem_mb=8000
+        csv="aging_rates/mutation_burdens_long_table.csv"
     log:
-        "aging_rates/{group}___mutburden___{qualtype}.log"
+        "aging_rates/mutation_burdens_long_table.log"
+    benchmark:
+        "aging_rates/mutation_burdens_long_table.benchmark.txt"
+    resources:
+        #mem_mb=lambda wildcards, input, threads, attempt: 8000 * 4**(attempt-1)
+        # Previously loaded all objects into memory at once, needed more RAM. Now
+        # each object is loaded and processed one at a time.
+        mem_mb=2000
     script:
-        "scripts/make_mutburden_tables.R"
+        "scripts/make_mutburden_long_table.R"
 
 
+rule annotate_signature_exposures:
+    input:
+        csv="aging_rates/mutation_burdens_long_table.csv",
+        expomats=[ "mutsigs/sigprofilerextractor/all/SBS96/Most_Stab_Sigs/exposures.csv",
+                   "mutsigs/sigprofilerextractor/all/SBS96/Most_Stab_Sigs/cosmic_exposures.csv",
+                   "mutsigs/sigprofilerextractor/all/ID83/Most_Stab_Sigs/exposures.csv",
+                   "mutsigs/sigprofilerextractor/all/ID83/Most_Stab_Sigs/cosmic_exposures.csv",
+                   "mutsigs/sigprofilerextractor/all/ID83_corrected/Most_Stab_Sigs/exposures.csv",
+                   "mutsigs/sigprofilerextractor/all/ID83_corrected/Most_Stab_Sigs/cosmic_exposures.csv" ]
+    output:
+        csv="aging_rates/mutation_burdens_with_signatures_long_table.csv"
+    params:
+        # ;-separated list of 3-tuples. each 3-tuple is (burden class, burden type, mutation type)
+        # The 3-tuples must correspond in order to the expomats input list
+        tags='denovo,SBS96,snv;cosmic,SBS96,snv;denovo,ID83,indel;cosmic,ID83,indel;denovo,ID83_corrected,indel;cosmic,ID83_corrected,indel'
+    log:
+        "aging_rates/mutation_burdens_with_signatures_long_table.log"
+    benchmark:
+        "aging_rates/mutation_burdens_with_signatures_long_table.benchmark.txt"
+    resources:
+        mem_mb=2000
+    script:
+        ""
+
+
+
+'''
 # Fit a linear model to each cell group
 # Also fits a joint linear model across all aging_groups_to_model to statistically
 # test for difference in rates between celltypes.
@@ -37,27 +69,51 @@ rule model_aging_rates:
         group_names=lambda wildcards: config['analysis_comparisons']['aging_rates'][wildcards.group],
         colors=lambda wildcards: [ config['analysis_meta']['aging_rates'][g]['color']
                 for g in config['analysis_comparisons']['aging_rates'][wildcards.group] ]
+    localrule: True
     resources:
         mem_mb=4000
     script:
         "scripts/model_aging_rates.R"
+'''
 
 
-# Only SNV correction is supported at the moment. Indel calling in MDA
-# was never supported, though there were signs that it could be mostly
-# solved by removing single bp indels in long homopolymers.
+# Only SNVs must be corrected. For neurons and OLs, it just so happens that the signature
+# of indels essentially does not overlap with the signature of PTA artifacts.
 rule correct_mutburdens_mda:
     input:
-        mutburden="aging_rates/{generic_group}___mutburden___A.csv",
-        expomat="mutsigs/sigprofilerextractor/cosmic_reduced/{generic_group}___expomat___A.csv"
+        mutburden="aging_rates/{group}___mutburden___A.csv",
+        expomat="mutsigs/sigprofilerextractor/cosmic_reduced/{group}___expomat___A.csv"
     output:
-        csv="aging_rates/{generic_group}___mutburden_mda_corrected___A.csv"
+        csv="aging_rates/{group}___mutburden_mda_corrected___A.csv"
     log:
-        "aging_rates/{generic_group}___mutburden_mda_corrected___A.log"
+        "aging_rates/{group}___mutburden_mda_corrected___A.log"
+    params:
+        sig_to_subtract=None
     threads: 1
     localrule: True
     resources:
         mem_mb=1000,
         localjob=1
+    script:
+        "scripts/correct_mutburden_mda.R"
+
+
+# Same as above, but use de novo signatures rather than COSMIC fits.
+mda_artifact_denovo_signature = 'SBS96B'
+print("WARNING: you must manually inspect de novo signatures to determine which of the randomly assigned names corresponds to Lodato et al's Signature B.  Currently using: " + mda_artifact_denovo_signature)
+rule correct_mutburdens_mda_denovo:
+    input:
+        mutburden="aging_rates/{group}___mutburden___A.csv",
+        expomat="mutsigs/sigprofilerextractor/all/SBS96/Most_Stab_Sigs/exposures_extrapolated_to_total_burden.csv"
+    output:
+        csv="aging_rates/{group}___mutburden_mda_corrected___A.csv"
+    log:
+        "aging_rates/{group}___mutburden_mda_corrected___A.log"
+    params:
+        sig_to_subtract=mda_artifact_denovo_signature
+    threads: 1
+    localrule: True
+    resources:
+        mem_mb=1000
     script:
         "scripts/correct_mutburden_mda.R"

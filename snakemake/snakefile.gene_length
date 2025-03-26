@@ -1,0 +1,61 @@
+# vim: syntax=python
+
+########################################################################
+# Gene length
+#
+# Min. signal coverage: _mc02
+# The coverage signal is used when creating "adjusted" gene length, which
+# regresses gene length against gene expression to remove length-expression
+# interactions. This is to prevent any enrichment signal from gene length
+# from being driven by underlying expression biases.
+#
+########################################################################
+
+enrichment_gene_length_config = dict(
+    **{ 'output_dir': 'enrichment/gene_length',
+        'SIGNAL_MANIFEST': 'manifests/GENE_LENGTH.MANIFEST' },
+    **config['enrichment_config']
+)
+
+module enrichment_gene_length:
+    snakefile: "snakefile.enrichment"
+    config: enrichment_gene_length_config
+
+use rule * from enrichment_gene_length as enrichment_gene_length_*
+
+use rule make_qbed_from_bigwig from enrichment_gene_length as enrichment_gene_length_make_qbed_from_bigwig with:
+    params:
+        **enrichment_gene_length.make_qbed_from_bigwig_params(0.2)
+
+# These specialized plot rules change the default output path of the plots and csv files.
+# So unfortunately they are necessary.
+use rule enrichment_plot from enrichment_gene_length as enrichment_gene_length_enrichment_plot with:
+    params:
+        ignore='enrichment_grid_R_ignore_none',
+        group='datasource'
+    output:
+        expand('enrichment/gene_length/quantile/{{mutclass}}.{{nquantiles}}quantiles.{output}',
+            output=[ 'svg', 'pdf', 'csv' ])
+    log:
+        'enrichment/gene_length/quantile/{mutclass}.{nquantiles}quantiles.log'
+
+use rule enrichment_plot_corrected from enrichment_gene_length as enrichment_gene_length_enrichment_plot_corrected with:
+    params:
+        ignore='enrichment_grid_R_ignore_none',
+        group='datasource'
+    output:
+        expand('enrichment/gene_length/quantile/{{mutclass}}.{{nquantiles}}quantiles.corrected.{output}',
+            output=[ 'svg', 'pdf', 'csv' ])
+    log:
+        'enrichment/gene_length/quantile/{mutclass}.{nquantiles}quantiles.corrected.log'
+
+
+use rule sigenrichment_plot from enrichment_gene_length as enrichment_gene_length_sigenrichment_plot with:
+    params:
+        ignore='enrichment_grid_R_ignore_none',
+        group='datasource'
+    output:
+        expand('enrichment/gene_length/quantile/{{mutclass}}.{{nquantiles}}quantiles_sigenrich_{{sigenrich_type}}_{{mutsig_selection_method}}.{output}',
+            output=[ 'svg', 'pdf', 'csv' ])
+    log:
+        'enrichment/gene_length/quantile/{mutclass}.{nquantiles}quantiles_sigenrich_{sigenrich_type}_{mutsig_selection_method}.log'

@@ -46,16 +46,17 @@ meta <- fread(meta)[,.(sample,donor,age,outlier)]
 objects <- load.summary(paths=object.rdas)
 
 dt <- data.table(sample=name(objects),
-                 nsom=sapply(objects, function(o) nrow(passing(o))),
-                 genome.burden=mutburden(objects, muttype=muttype))
+                 nsom=sapply(objects, function(o) nrow(passing(o, muttype=muttype))),
+                 # mutburden() returns a 1-column matrix
+                 genome.burden=as.vector(mutburden(objects, muttype=muttype)))
 if (prevburden != 'Notafile') {
-    cat("Adding neuron burdens from previous paper..\n")
+    cat("Adding burdens from previous paper..\n")
     dt <- rbind(dt, fread(prevburden)[,.(sample=sample,nsom=raw.calls, genome.burden=burden)])
 }
 
 meta <- meta[dt, on='sample']
 # No longer masking them by setting to NA.
-meta[meta$outlier != "NORMAL"]$genome.burden <- NA  # mask outliers from the aging rate calculations
+#meta[meta$outlier != "NORMAL"]$genome.burden <- NA  # mask outliers from the aging rate calculations
 
 fwrite(meta, file=out.csv)
 

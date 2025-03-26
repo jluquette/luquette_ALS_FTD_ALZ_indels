@@ -44,7 +44,9 @@ if (!(filter %in% c('filtered', 'unfiltered')))
 if (file.exists(outvcf))
     stop(paste('output file', outvcf, 'already exists, please delete it first'))
 
-suppressMessages(library(scan2))
+# scan2 loads many libraries
+#suppressMessages(library(scan2))
+suppressMessages(library(data.table))
 
 muttab <- fread(incsv)
 
@@ -63,7 +65,7 @@ if (filter == 'filtered')
 
 
 # dummy header
-lines.to.write <- c("##fileformat=VCFv4.0", "##source=rda_to_vcf.R", 
+lines.to.write <- c("##fileformat=VCFv4.0", "##source=scan2_table_to_vcf.R", 
     "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">")
 lines.to.write <- c(lines.to.write, paste(c("#CHROM", "POS", "ID", 
     "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "dummy"), 

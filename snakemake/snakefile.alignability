@@ -1,5 +1,169 @@
 # vim: syntax=python
 
+rule compute_mean_depth_bigwig:
+    input:
+        bigwigs=lambda wildcards: expand('alignability/bigwigs_binsize100/{sample}.bw',
+            sample=config['groups'][wildcards.group]),
+        fai='resources/human_g1k_v37_decoy.fasta.fai'
+    output:
+        bigwig="alignability/bigwigs_mean_binsize100/{group}/{chrom}.bw"
+    log:
+        "alignability/bigwigs_mean_binsize100/{group}/{chrom}.log"
+    benchmark:
+        "alignability/bigwigs_mean_binsize100/{group}/{chrom}.benchmark.txt"
+    resources:
+        mem_mb=2000
+    shell:
+        """
+        wiggletools mean \
+            $(for f in {input.bigwigs}; do echo seek {wildcards.chrom} 1 1000000000 $f; done) \
+        | bigtools bedgraphtobigwig - {input.fai} {output.bigwig}
+        """
+
+
+rule score_mean_depth_bigwig:
+    input:
+        mean_bigwig="alignability/bigwigs_mean_binsize100/{group}/{chrom}.bw",
+        fai='resources/human_g1k_v37_decoy.fasta.fai'
+    output:
+        bigwig="alignability/bigwigs_mean_binsize100/{group}/{chrom}_criteria.bw",
+        histogram="alignability/bigwigs_mean_binsize100/{group}/{chrom}_mean_depth_histogram.txt",
+        cutoff="alignability/bigwigs_mean_binsize100/{group}/{chrom}_mean_depth_q97.5_cutoff.txt"
+    log:
+        "alignability/bigwigs_mean_binsize100/{group}/{chrom}_criteria.log"
+    benchmark:
+        "alignability/bigwigs_mean_binsize100/{group}/{chrom}_criteria.benchmark.txt"
+    params:
+        # Number between 0-1: disallow tiles with depth > the quantile-th percentile of depth
+        quantile=0.975
+    localrule: True
+    resources:
+        mem_mb=1000
+    shell:
+        """
+        wiggletools histogram {output.histogram} 1000 log 10 {input.mean_bigwig}
+        cat {output.histogram} | Rscript -e 'x <- read.table("stdin"); cat(10^x[which.min(abs({params.quantile} - cumsum(x[[2]])/sum(x[[2]]))), 1])' > {output.cutoff}
+        wiggletools \
+            sum gte 6 {input.mean_bigwig} \
+                lte $(cat {output.cutoff}) {input.mean_bigwig} \
+        | bigtools bedgraphtobigwig - {input.fai} {output.bigwig}
+        """
+
+
+rule make_genome_tile_bed_scatter:
+    input:
+        # PTA cells are used to define the masked applied to all data. Could extend to arbitrary
+        # groups in the future, but would require different QBEDs for enrichment analysis downstream,
+        # which currently isn't supported.
+        criteria_bigwig="alignability/bigwigs_mean_binsize100/pta/{chrom}_criteria.bw",
+        depth_bigwig="alignability/bigwigs_mean_binsize100/pta/{chrom}.bw",
+        bins="alignability/beds/genome_tiles_{binsize}binsize.bed"
+    output:
+        tmpbins=temp('alignability/genome_tiles/{binsize}binsize/{chrom}.unscored_bins.bed'),
+        bed='alignability/genome_tiles/{binsize}binsize/{chrom}.bed'
+    log:
+        'alignability/genome_tiles/{binsize}binsize/{chrom}.log'
+    benchmark:
+        'alignability/genome_tiles/{binsize}binsize/{chrom}.benchmark.txt'
+    params:
+        req_cov=0.8
+    localrule: True
+    resources:
+        mem_mb=1000
+    shell:
+        """
+        grep -P '^{wildcards.chrom}\t' {input.bins} > {output.tmpbins}
+        wiggletools mwrite_bg - \
+            gte {params.req_cov} apply meanI {output.tmpbins} offset -1 {input.criteria_bigwig} \
+            apply meanI {output.tmpbins} {input.depth_bigwig} \
+        | awk -v OFS='\t' '{{ print "chr" $1, $2, $3, "{wildcards.chrom}_" NR, int($4), $5; }}' > {output.bed}
+        """
+
+
+rule make_genome_tile_bed_gather:
+    input:
+        beds=expand('alignability/genome_tiles/{{binsize}}binsize/{chrom}.bed',
+            chrom=config['chrs_for_alignability'])
+    output:
+        bed='alignability/genome_tiles/genome_tiles_{binsize}binsize.bed'
+    log:
+        'alignability/genome_tiles/genome_tiles_{binsize}binsize.log'
+    benchmark:
+        'alignability/genome_tiles/genome_tiles_{binsize}binsize.benchmark.txt'
+    localrule: True
+    resources:
+        mem_mb=1000
+    shell:
+        """
+        cat {input.beds} > {output.bed}
+        """
+
+
+rule make_genome_bin_bed:
+    input:
+        fai='resources/human_g1k_v37_decoy.fasta.fai'
+    output:
+        bed="alignability/beds/genome_tiles_{binsize}binsize.bed"
+    log:
+        "alignability/beds/genome_tiles_{binsize}binsize.log"
+    localrule: True
+    shell:
+        # the bigwig format unfortunately requires chromosomes to be sorted lexicographically, so
+        # we have to do this.
+        """
+        bedtools makewindows -g {input.fai} -w {wildcards.binsize} \
+        | grep -P '^[0-9XY]+\t' \
+        | sort -k1,1 -k2,2n > {output.bed}
+        """
+
+
+# Notable hack: the bigwig created by this rule does not adhere to the required chromosome
+# sort order for bigwigs.  This is highly advantageous because sorting this basepair
+# resolution file is extremely slow.  The rule that summarizes this 1bp resolution bed
+# into coarser bins fixes the sort order by following the order in the supplied BED files.
+# This sorting is performed by index jumping, so never requires the 1bp resolution file to
+# be sorted.
+ruleorder: joint_depth_matrix_to_bigwig > average_alignability_bigwig_over_bed
+rule joint_depth_matrix_to_bigwig:
+    input:
+        joint_matrix=lambda wildcards: config['scan2_depth_matrices'][config['sample_to_donor_map'][wildcards.sample]],
+        fai='resources/human_g1k_v37_decoy.fasta.fai'
+    output:
+        bigwig=temp("alignability/bigwigs_binsize1/{sample}.bw")
+    log:
+        "alignability/bigwigs_binsize1/{sample}.bw"
+    benchmark:
+        "alignability/bigwigs_binsize1/{sample}.benchmark.txt"
+    resources:
+        mem_mb=2000
+    script:
+        "scripts/joint_depth_matrix_to_bigwig.sh"
+
+
+rule average_alignability_bigwig_over_bed:
+    input:
+        bigwig="alignability/bigwigs_binsize1/{sample}.bw",
+        bed="alignability/beds/genome_tiles_{binsize}binsize.bed",
+        fai='resources/human_g1k_v37_decoy.fasta.fai'
+    output:
+        bigwig="alignability/bigwigs_binsize{binsize}/{sample}.bw"
+    log:
+        "alignability/bigwigs_binsize{binsize}/{sample}.bw"
+    benchmark:
+        "alignability/bigwigs_binsize{binsize}/{sample}.benchmark.txt"
+    resources:
+        mem_mb=3000
+    shell:
+        """
+        wiggletools apply meanI {input.bed} {input.bigwig} \
+        | bigtools bedgraphtobigwig \
+            --nzooms 0 \
+            - \
+            {input.fai} \
+            {output.bigwig} >& {log}
+        """
+
+
 # Convenience: for some analyses that use bedtools, extract only the
 # intervals that should be removed.
 rule tile_to_mask:
@@ -11,10 +175,11 @@ rule tile_to_mask:
         mem_mb=1000
     shell:
         """
-        grep '0$' {input} > {output}
+        awk '$5 == 0' {input} > {output}
         """
 
 
+'''
 # The ultimate output of the alignability analysis: a set of tiles covering
 # the genome with poorly aligned regions removed.
 rule tile_genome:
@@ -69,8 +234,8 @@ rule tile_genome_200bp_gather:
 
 rule digest_chrom:
     input:
-        matfiles=config['scan2_depth_matrices'].values(),
-        matfileidxs=[ matfile + ".tbi" for matfile in config['scan2_depth_matrices'].values() ]
+        matfiles=list(set(config['scan2_depth_matrices'].values())),
+        matfileidxs=[ matfile + ".tbi" for matfile in list(set(config['scan2_depth_matrices'].values())) ]
     output:
         rda="alignability/base_tile_size_tables/chr{chr}.rda"
     benchmark:
@@ -121,6 +286,7 @@ rule gather_bulk_accessible:
         localjob=1
     script:
         "scripts/combine_uniform_tables.R"
+'''
 
 
 '''

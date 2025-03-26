@@ -9,66 +9,58 @@ if ('snakemake' %in% ls()) {
     sink(con, type='message')
 
     commandArgs <- function(...) unlist(c(
-        snakemake@input['rda'],
-        snakemake@params['sig'],
-        snakemake@output['rda']
+        snakemake@output['csv_or_rda'],
+        snakemake@input['csv_or_rda'],
+        snakemake@params['filetype'],
+        snakemake@params['colname'],
+        snakemake@params[['channels']]
     ))
     cat('Got command line arguments from snakemake:\n')
     print(commandArgs())
 }
 
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args) != 3) {
-    cat('in.rda must contain only a single object. mutation .RData files and permutation .RData files are differentiated by checking this object for the data.table/data.frame or GenomicRanges/CompressedGRangesList classes, respectively. If the object is not one of these two classes, the script will exit.\n')
+if (length(args) < 5) {
+    cat("Subsets either a permutation set (.rda file) or mutation set (.csv file) to specific signature channels.\n")
+    cat("If an .rda file is supplied, it must contain a single object of class GenomicRanges or CompressedGRangesList.\n")
     cat('the object in in.rda must contain a column named `mutsig` that contains SBS96 channel info\n')
-    cat('sbs1 keeps any C>T at an NCG context; sbs16 keeps any T>C at an ATN context; sbs32 keeps any C>T at an ACN context (except ACG); id4 keeps any 2bp deletion at 1-2 repeats or MH=1\n')
-    stop('usage: subset_by_mutsig.R in.rda {sbs1|sbs16|sbs32|id4} out.rda')
+    stop('usage: subset_by_mutsig.R out.{rda or csv} in.{rda or csv} {rda|csv} colname channel1 [ channel2 ... channelN ]')
 }
 
 
-in.rda <- args[1]
-sigtype <- args[2]
-out.rda <- args[3]
+out.file <- args[1]
+in.file <- args[2]
+file.type <- tolower(args[3])
+colname <- args[4]
+channels <- args[-(1:4)]
 
-if (sigtype != 'sbs1' & sigtype != 'sbs16' & sigtype != 'sbs32' & sigtype != 'id4')
-    stop("sigtype must be either 'sbs1' or 'sbs16', case sensitive")
+if (file.exists(out.file))
+    stop(paste('output file', out.file, 'already exists, please delete it first'))
 
-for (f in c(out.rda)) {
-    if (file.exists(f))
-        stop(paste('output file', f, 'already exists, please delete it first'))
-}
 
-suppressMessages(library(scan2))
-
-if (sigtype == 'sbs1') {
-    grep.pattern <- 'CG:C>T'
-} else if (sigtype == 'sbs16') { 
-    grep.pattern <- 'AT.:T>C'
-} else if (sigtype == 'sbs32') { 
-    grep.pattern <- 'AC[ACT]:C>T'  # specifically exclude C>T:ACG, which is the primary peak of SBS1
-} else if (sigtype == 'id4') {
-    grep.pattern <- '2:Del:[MR]:[01]'
+if (file.type == 'csv') {
+    suppressMessages(library(data.table))
+    cat('CSV file - mutation table\n')
+    mut.tab <- fread(in.file)
+    mut.tab <- mut.tab[mut.tab[[colname]] %in% channels]
+    fwrite(mut.tab, file=out.file)
+} else if (file.type == 'rda') {
+    suppressMessages(library(GenomicRanges))
+    o.name <- load(in.file)
+    original <- get(o.name)
+    if ('GenomicRanges' %in% class(original) | 'CompressedGRangesList' %in% class(original)) {
+        cat('detected permutation list\n')
+        subsetted <- GenomicRanges::GRangesList(lapply(original, function(x) x[mcols(x)[[colname]] %in% channels,]))
+        # Saves the object named o.name, not the object o.name itself
+        assign(o.name, subsetted)
+        save(list=o.name, file=out.file)
+    } else {
+        stop(paste('expected GenomicRanges or CompressGRangesList for object', o.name, 'in .rda file, but got', class(original)))
+    }
 } else {
-    stop("sigtype must be either 'sbs1', 'sbs16', 'sbs32' or 'id4', case sensitive")
+    stop("file type must be either 'csv' or 'rda'")
 }
 
-o.name <- load(in.rda)
-original <- get(o.name)
-
-
-if ('data.table' %in% class(original) | 'data.frame' %in% class(original)) {
-    cat('detected mutation table\n')
-    subsetted <- original[grep(grep.pattern, original$mutsig),]
-} else if ('GenomicRanges' %in% class(original) | 'CompressedGRangesList' %in% class(original)) {
-    cat('detected permutation list\n')
-    subsetted <- GenomicRanges::GRangesList(lapply(original, function(x) x[grep(grep.pattern, x$mutsig),]))
-} else {
-    stop(paste0('object "', o.name, '" of class ', class(original), ' is not one of the recognized class types (data.table, data.frame, GenomicRanges, CompressedGRangesList)'))
-}
-
-# Saves the object named o.name, not the object o.name itself
-assign(o.name, subsetted)
-save(list=o.name, file=out.rda)
 
 if ('snakemake' %in% ls()) {
     sink()

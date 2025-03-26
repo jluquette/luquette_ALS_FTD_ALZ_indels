@@ -53,7 +53,8 @@ base.tiles <- do.call(c, lapply(unname(digest.files), function(df) {
     load(df)
     mean.mat <- mean.mat[, ..sample.ids]
     tiles$dp <- rowMeans(mean.mat)
-    tiles.not.in.gatk$dp <- NA
+    if (length(tiles.not.in.gatk) > 0)
+        tiles.not.in.gatk$dp <- NA
     chroms <<- c(chroms, chrom)  # record which chromosomes have been loaded
     a <- c(tiles, tiles.not.in.gatk)
     a <- sort(a)

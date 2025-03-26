@@ -1,0 +1,16 @@
+# vim: syntax=python
+
+########################################################################
+# The chr9p21 fragile site region and a few surrounded cytobands as controls.
+########################################################################
+enrichment_fragile_sites_config = dict(
+    **{ 'output_dir': 'enrichment/fragile_sites',
+        'SIGNAL_MANIFEST': 'manifests/FRAGILE_SITES.MANIFEST' },
+    **config['enrichment_config']
+)
+
+module enrichment_fragile_sites:
+    snakefile: "snakefile.bed_enrichment"
+    config: enrichment_fragile_sites_config
+
+use rule * from enrichment_fragile_sites as enrichment_fragile_sites_*

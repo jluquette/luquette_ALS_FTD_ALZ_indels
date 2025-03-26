@@ -125,7 +125,7 @@ rule enrichment_bed_analysis:
     params:
         nbootstraps=10000
     resources:
-        mem_mb=15000
+        mem_mb=lambda wildcards, attempt: 6000 if attempt == 1 else (18000 if attempt == 2 else 54000)
     log:
         summary=outroot + "/{mutclass}/bedenrich/bedenrich.log"
     benchmark:

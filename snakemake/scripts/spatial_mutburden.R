@@ -169,9 +169,9 @@ fwrite(out.df, file=out.profile.csv)
 devs=list(pdf, svglite)
 outs=c(out.pdf, out.svg)
 for (i in 1:2) {
-    devs[[i]](width=4.0, height=1.5, pointsize=5, file=outs[i])
+    devs[[i]](width=4.0, height=3.0, pointsize=5, file=outs[i])
     par(mar=c(4,4,1,0))
-    layout(matrix(c(1:3,4,4,4), nrow=2, byrow=TRUE), widths=c(2,1,2))
+    layout(matrix(c(1:2,3,3,4,4,5,5), nrow=2, byrow=TRUE), widths=c(1,1,1,1)) #widths=c(2,1,2))
     xmax <- max(bins$muts.smoothed, na.rm=TRUE)
     plot(as.numeric(names(table(bins$muts.smoothed))),
          as.vector(table(bins$muts.smoothed)/length(bins)),
@@ -192,7 +192,7 @@ for (i in 1:2) {
 
     # TODO: generalize these power calculations so they're done for every analysis
     # XXX: add enrich-only power testing
-    if (FALSE) {
+    #if (FALSE) {
     mu <- exp(coef(pois.model))
     mults=c(1,2,5,10,20,50,100)
 
@@ -208,7 +208,7 @@ for (i in 1:2) {
     }
     legend('bottomright', legend=mults, col=1:length(mults),lwd=2, title='Mutation multiplier')
     dev.off()
-    }
+    #}
 }
 
 if ('snakemake' %in% ls()) {

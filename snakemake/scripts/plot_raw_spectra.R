@@ -67,7 +67,8 @@ for (i in 1:2) {
     devs[[i]](file=outs[i], width=figwidth, height=figheight)
     par(mar=c(1,4,3,1))
     s <- as.spectrum(muts$mutsig, eps=0, fraction=TRUE)
-    plotf(x=1, spectrum=s, main=plot.title)
+str(s)
+    plotf(s, main=plot.title)
 }
 
 d <- data.table(MutType=names(s), Spectrum=as.vector(s))

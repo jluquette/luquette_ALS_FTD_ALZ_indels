@@ -283,50 +283,61 @@ rule scan2_call_mutations_setup:
         """
 
 
-rule scan2_call_mutations:
-    input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
-        yaml="scan2/{donor}/scan2/scan.yaml"
-    output:
-        dpmatrix=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz"),
-        dpmatrixidx=protected("scan2/{donor}/scan2/depth_profile/joint_depth_matrix.tab.gz.tbi")
-    params:
-        scan2_output_dir="scan2/{donor}/scan2"
-    log:
-        'scan2/{donor}/scan2/log.txt'
-    threads: 1
-    resources:
-        mem_mb=4000,
-        scan2jobs=1,
-        # Try encoding SCAN2 resources as resources in this rule rather than
-        # parameters.  Changing a parameter will cause Snakemake to rerun jobs
-        # but perhaps changing a resource won't.  This might not work, though,
-        # because it will change the shell command, but is worth a try.
-        scan2_queue=lambda wildcards: config['scan2_resources'][wildcards.donor]['queue'],
-        scan2_account=lambda wildcards: config['scan2_resources'][wildcards.donor]['account'],
-        scan2_runtime=lambda wildcards: config['scan2_resources'][wildcards.donor]['runtime'],
-        scan2_genotype_n_cores=1,
-        scan2_abests_and_mutmodels_n_cores=lambda wildcards: config['scan2_resources'][wildcards.donor]['abests_and_mutmodels_n_cores'],
-        scan2_ab_covariates_n_cores=lambda wildcards: config['scan2_resources'][wildcards.donor]['ab_covariates_n_cores'],
-        scan2_restart_times=lambda wildcards: config['scan2_resources'][wildcards.donor]['restart_times'],
-        scan2_joblimit=lambda wildcards: config['scan2_resources'][wildcards.donor]['joblimit'],
-        # a little annoying: when no args are specified, want this to be an empty string.
-        # when args are specified, add a space.
-        scan2_other_snakemake_args=lambda wildcards: '' if config['scan2_resources'][wildcards.donor]['other_snakemake_args'] == '' else ' ' + config['scan2_resources'][wildcards.donor]['other_snakemake_args'] 
-    shell:
-        # --notemp: the new scan2 rules that adds a dummy rule to create
-        #   an argument file of VCFs (which are temped()) make it impossible
-        #   to rerun the pipeline without recomputing everything.
-        """
-        {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
-            call_mutations \
-                --joblimit {resources.scan2_joblimit} \
-                --genotype-n-cores={resources.scan2_genotype_n_cores} \
-                --abests-and-mutmodels-n-cores={resources.scan2_abests_and_mutmodels_n_cores} \
-                --ab-covariates-n-cores={resources.scan2_ab_covariates_n_cores} \
-                --snakemake-args ' --restart-times={resources.scan2_restart_times} --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --default-resources slurm_account={resources.scan2_account} slurm_partition={resources.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
-        """
+# These jobs cannot be handled by a single rule because the output depends
+# on the value of the wildcard 'donor', which is not allowed in snakemake.
+# The reason is that this rule creates one output per sample associated with
+# 'donor', which can only be known by accessing the config[] dict storing
+# which samples are related to which donors. The snakemake way of handling
+# this is checkpoints, but I've found checkpoints to be hard to work with
+# because they make it impossible to compute the DAG up front.
+for donor in config['scan2_donors']:
+    rule:
+        name: "scan2_call_mutations_" + donor
+        input:
+            scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+            scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
+            yaml="scan2/"+ donor + "/scan2/scan.yaml"
+        output:
+            dpmatrix=protected("scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz"),
+            dpmatrixidx=protected("scan2/" + donor + "/scan2/depth_profile/joint_depth_matrix.tab.gz.tbi"),
+            rdas=protected(expand('scan2/' + donor + '/scan2/call_mutations/{sample}/scan2_object.rda',
+                sample=bams[donor]['single_cell'].keys()))
+        params:
+            scan2_output_dir="scan2/" + donor + "/scan2"
+        log:
+            "scan2/" + donor + "/scan2/log.txt"
+        threads: 1
+        resources:
+            mem_mb=4000,
+            scan2jobs=1,
+            # Try encoding SCAN2 resources as resources in this rule rather than
+            # parameters.  Changing a parameter will cause Snakemake to rerun jobs
+            # but perhaps changing a resource won't.  This might not work, though,
+            # because it will change the shell command, but is worth a try.
+            scan2_queue=config['scan2_resources'][donor]['queue'],
+            scan2_account=config['scan2_resources'][donor]['account'],
+            scan2_runtime=config['scan2_resources'][donor]['runtime'],
+            scan2_genotype_n_cores=1,
+            scan2_abests_and_mutmodels_n_cores=config['scan2_resources'][donor]['abests_and_mutmodels_n_cores'],
+            scan2_ab_covariates_n_cores=config['scan2_resources'][donor]['ab_covariates_n_cores'],
+            scan2_restart_times=config['scan2_resources'][donor]['restart_times'],
+            scan2_joblimit=config['scan2_resources'][donor]['joblimit'],
+            # a little annoying: when no args are specified, want this to be an empty string.
+            # when args are specified, add a space.
+            scan2_other_snakemake_args= '' if config['scan2_resources'][donor]['other_snakemake_args'] == '' else ' ' + config['scan2_resources'][donor]['other_snakemake_args'] 
+        shell:
+            # --notemp: the new scan2 rules that adds a dummy rule to create
+            #   an argument file of VCFs (which are temped()) make it impossible
+            #   to rerun the pipeline without recomputing everything.
+            """
+            {input.scan2_bin} -d {params.scan2_output_dir} --snakefile {input.scan2_snakefile} \
+                call_mutations \
+                    --joblimit {resources.scan2_joblimit} \
+                    --genotype-n-cores={resources.scan2_genotype_n_cores} \
+                    --abests-and-mutmodels-n-cores={resources.scan2_abests_and_mutmodels_n_cores} \
+                    --ab-covariates-n-cores={resources.scan2_ab_covariates_n_cores} \
+                    --snakemake-args ' --restart-times={resources.scan2_restart_times} --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 1 --default-resources slurm_account={resources.scan2_account} slurm_partition={resources.scan2_queue} runtime={resources.scan2_runtime}{resources.scan2_other_snakemake_args}'
+            """
 
 
 rule scan2_rescue_setup:
@@ -366,33 +377,38 @@ rule scan2_rescue_setup:
         """
 
 
-rule scan2_rescue_run:
-    input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
-        scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        scan2_objects=lambda wildcards: config['scan2_rescue_groups'][wildcards.rescue_group].keys(),
-        yaml="scan2/rescue_{rescue_group}/scan.yaml"
-    output:
-        "scan2/rescue_{rescue_group}/rescued_muts.txt",
-        "scan2/rescue_{rescue_group}/sig_homogeneity_tests.txt"
-    log:
-        "scan2/rescue_{rescue_group}/run.log"
-    benchmark:
-        "scan2/rescue_{rescue_group}/run.benchmark.txt"
-    params:
-        outdir="scan2/rescue_{rescue_group}"
-    threads: 10
-    resources:
-        # Each thread loads one full analysis object (~3.5Gb of RAM for humans).
-        # Give double in case a copy is made.
-        mem_mb=lambda wildcards, input, threads: (7000)*(1 + threads)
-    shell:
-        """
-        {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} rescue \
-            --n-cores {threads} \
-            --joblimit {threads}
-        """
+# Same as scan2_call_mutations: outputs depend on wildcard 'group'
+for group in config['scan2_rescue_groups'].keys():
+    rule:
+        name: 'scan2_rescue_run_' + group
+        input:
+            scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+            scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
+            scan2_scripts="scan2/SCAN2_specific_commit/scripts",
+            scan2_objects=config['scan2_rescue_groups'][group].keys(),
+            yaml="scan2/rescue_" + group + "/scan.yaml"
+        output:
+            "scan2/rescue_" + group + "/rescued_muts.txt",
+            "scan2/rescue_" + group + "/sig_homogeneity_tests.txt",
+            rdas=expand('scan2/rescue_' + group + '/objects/{sample}_scan2_object_rescue.rda',
+                sample=config['scan2_rescue_groups'][group].values())
+        log:
+            "scan2/rescue_" + group + "/run.log"
+        benchmark:
+            "scan2/rescue_" + group + "/run.benchmark.txt"
+        params:
+            outdir="scan2/rescue_" + group + ""
+        threads: 10
+        resources:
+            # Each thread loads one full analysis object (~3.5Gb of RAM for humans).
+            # Give double in case a copy is made.
+            mem_mb=lambda wildcards, input, threads: (7000)*(1 + threads)
+        shell:
+            """
+            {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} rescue \
+                --n-cores {threads} \
+                --joblimit {threads}
+            """
 
 
 # Make a flattened directory of SCAN2 objects for convenience. Does require
@@ -436,6 +452,7 @@ rule scan2_make_summary:
         """
 
 
+print("WARNING: scan2_digest_calls removes all chrX/chrY calls in mutations.FILTERED.txt to prevent using them in enrichment analyses. Ensure your sex chromosomes are named 'X' and 'Y'!")
 rule scan2_digest_calls:
     input:
         scan2_dir='scan2/SCAN2_specific_commit',
@@ -450,6 +467,7 @@ rule scan2_digest_calls:
         "scan2/{rescue_group}_mutations.benchmark.txt"
     params:
         column_name='donor',
+        chrom_column='2',
         filter_column='16'
     localrule: True
     threads: 1
@@ -464,7 +482,7 @@ rule scan2_digest_calls:
             --individual-column {params.column_name} \
             {output.unfiltered} &> {log}
 
-        awk -F, 'NR == 1 || ${params.filter_column} == "FALSE"' {output.unfiltered} > {output.filtered}
+        awk -F, 'NR == 1 || (${params.chrom_column} != "X" && ${params.chrom_column} != "Y" && ${params.filter_column} == "FALSE")' {output.unfiltered} > {output.filtered}
         """
 
 
@@ -519,7 +537,7 @@ rule make_synthetic_group_table:
     params:
         qualtype='{qualtype}',
         filter='{filter}',
-        samples=lambda wildcards: config['synthetic_groups'][wildcards.synthetic_group]
+        samples=lambda wildcards: config['groups'][wildcards.synthetic_group]
     threads: 1
     resources:
         mem_mb=1000
@@ -546,74 +564,124 @@ rule scan2_table_to_vcf:
         "scripts/scan2_table_to_vcf.R"
 
 
-rule scan2_permtool_setup:
+
+# Older pipelines generated permutations on rescue groups, which happen to be mutually
+# exclusive sets of all samples. The old code was basically a hack to generate permutations
+# per sample, and even still often failed because the combine_permutations step of
+# scan2::permtool has a wildly variable memory requirement (scales by mutation count, not
+# sample count). To make matters worse, when combine_permutations failed, all of the per
+# sample permutations were deleted because they are outputs of the same rule.
+# 
+# We now make use of SCAN2's --no-combine-permutations option to stop permtool after
+# generating permutations per sample rather than using the previous hack.
+#
+# An added benefit is that all permutation groups are now created the same way (see rule
+# scan2_permtool_synthetic) rather than having two different ways, one for rescue groups
+# and one for all other "synthetic" groups.
+#
+# NOTE ON RANDOM SEEDS FOR PERMUTATIONS: scan2 generates random seeds per sample by the
+# sample name alone. As long as all sample names are unique, there should be no issues.
+#
+# NOTE ON GENERATING PERMUTATIONS PER SAMPLE WITH SEPARATE RULES:
+#   - do not try to run a "single sample" scan2 permtool. there is no good way to do this
+#     since each permtool controller job ties up 1 CPU core by itself and does nothing.
+#     one could try to instead have the controller job not submit to the cluster, but
+#     then the cores given to that job have to be split across the 4 permutation types
+#     (snv, indel) x (pass, rescue). This becomes intolerable for some extreme samples that
+#     take ~16 hours to generate one permutation set. The wait time is too much whether
+#     done serially (i.e., using all supplied cores but 1 job at a time) or in parallel
+#     (i.e., supplying, e.g., 16 cores and targeting 4 cores per job).
+#   - it is also inadvisable to add a "toolbox command" to scan2 that just creates one
+#     permutation because single cells must be matched to bulks when creating the callable
+#     regions BED file. this is possible, but we have to match the way SCAN2 chooses bulks
+#     in the rare cases where #bulks > 1, and that logic does not belong in this pipeline.
+print("WARNING: scan2_permtool: ensure that all single cell sample names are unique. Random seeds for permutation generation are created based on sample name!\n")
+rule scan2_permtool_setup_all_samples:
     input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
+        scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+        scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
         scan2_scripts="scan2/SCAN2_specific_commit/scripts",
         genome_file="resources/hg19.genome",
-        muts="scan2/{rescue_group}_mutations.FILTERED.txt"
+        # reference genome is a hack to work around unintended behavior with chrY detection
+        ref='resources/human_g1k_v37_decoy.fasta',
+        # have to map back to original SCAN2 run for joint depth matrix and rescue group for recurrence-filtered muts
+        muts="tables/all___FILTERED_mut___any.csv"
     output:
-        "scan2/permtool/{rescue_group}/scan.yaml"
+        "scan2/permtool_by_sample/scan.yaml"
     log:
-        "scan2/permtool/{rescue_group}/setup.log"
+        "scan2/permtool_by_sample/setup.log"
     benchmark:
-        "scan2/permtool/{rescue_group}/setup.benchmark.txt"
+        "scan2/permtool_by_sample/setup.benchmark.txt"
     params:
-        outdir="scan2/permtool/{rescue_group}",
+        outdir="scan2/permtool_by_sample",
         n_permutations=10000,
-        # the SCAN2 directory is used by permtool for the joint depth matrix.
-        # this is used to calculate the callable subset of the genome over which
-        # to permute mutations.
-        sample_flags=lambda wildcards: [ '--permtool-sample ' + sample + ' scan2/' + list(config['metadata'][config['metadata']['sample']==sample]['donor'])[0] + '/scan2' for sample in config['scan2_rescue_groups'][wildcards.rescue_group].values() ]
+        # without sorted(), this rule is always rerun. I have no idea why the list comprehension
+        # below would not be the same every time.
+        sample_flags=' '.join(sorted(f"--permtool-sample {sample} scan2/{config['sample_to_donor_map'][sample]}/scan2" for sample in config['all_single_cells_in_groups']))
     localrule: True
     threads: 1
     resources:
-        mem_mb=1000,
-        localjob=1
+        mem_mb=1000
     shell:
         """
         {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} init
         {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} config \
             --verbose \
             --scripts $(realpath {input.scan2_scripts}) \
+            --ref {input.ref} \
             --analysis permtool \
+            --no-combine-permutations \
             --permtool-muts {input.muts} \
             --permtool-bedtools-genome-file {input.genome_file} \
             --permtool-n-permutations {params.n_permutations} \
-            --permtool-callable-bed-n-cores 10 \
-            --permtool-make-permutations-n-cores 10 \
             {params.sample_flags}
         {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} validate
         """
 
 
-rule scan2_permtool_run:
+rule scan2_permtool_run_all_samples:
     input:
-        scan2_bin="scan2/SCAN2_specific_commit/bin/scan2",
-        scan2_snakefile="scan2/SCAN2_specific_commit/snakemake/Snakefile",
+        scan2_bin=ancient("scan2/SCAN2_specific_commit/bin/scan2"),
+        scan2_snakefile=ancient("scan2/SCAN2_specific_commit/snakemake/Snakefile"),
         scan2_scripts="scan2/SCAN2_specific_commit/scripts",
-        yaml="scan2/permtool/{rescue_group}/scan.yaml"
+        yaml="scan2/permtool_by_sample/scan.yaml"
     output:
-        expand("scan2/permtool/{{rescue_group}}/perms_{muttype}_{passtype}.rda",
+        expand("scan2/permtool_by_sample/perms_by_sample_copy/{sample}/{muttype}_{passtype}.rda",
+            sample=config['all_single_cells_in_groups'],
             muttype=[ 'snv', 'indel'], passtype=[ 'pass', 'rescue' ])
-    log:
-        "scan2/permtool/{rescue_group}/run.log"
-    benchmark:
-        "scan2/permtool/{rescue_group}/run.benchmark.txt"
+    # log: and benchmark: can't be used because they must contain the {sample} wildcards,
+    # but only one log/benchmark file should be created for the whole run, not one per sample
     params:
-        outdir="scan2/permtool/{rescue_group}",
+        outdir="scan2/permtool_by_sample/"
     threads: 1
     resources:
-        mem_mb=4000
+        mem_mb=4000,
+        make_permutations_n_cores=8,
+        permtool_slurm_account='park_contrib',
+        permtool_slurm_partition='priopark',
+        permtool_slurm_runtime=4330
     shell:
+        # --restart-times=2: critical parameter to allow memory step-up in make_permutations
+        #
+        # perms_by_sample_copy hack: major hack to prevent this rule from deleting all of the
+        #   successful permutations it generates when >=1 fails. because the perms_by_sample
+        #   directory is not listed in the output: of this rule, the files generated there
+        #   will be safe. When the rule is successful, the copied output will all be created.
         """
-        {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} permtool \
-            --joblimit 500 \
-            --snakemake-args ' --keep-going --max-status-checks-per-second 0.5 --max-jobs-per-second 10 --slurm --default-resources slurm_account=park_contrib slurm_partition=park runtime=2880' \
+            {input.scan2_bin} -d {params.outdir} --snakefile {input.scan2_snakefile} permtool \
+                --joblimit 5000 \
+                --make-permutations-n-cores {resources.make_permutations_n_cores} \
+                --snakemake-args ' --restart-times 2 --keep-going --max-status-checks-per-second 0.1 --max-jobs-per-second 2 --slurm --default-resources slurm_account={resources.permtool_slurm_account} slurm_partition={resources.permtool_slurm_partition} runtime={resources.permtool_slurm_runtime}' >& {params.outdir}/run.log
+
+            cp -ran {params.outdir}/perms_by_sample {params.outdir}/perms_by_sample_copy
         """
 
 
+# OLD NOTES below. Now that all permutations are generated per sample, all groups
+# of permutations are generated by this rule.
+#
+# left for posterity ------------------------------------------------
+#
 # To save compute resources, only run SCAN2 permtool on the exhaustive, mutually
 # exclusive rescue groups. To create more permutation groups for, e.g., batch1 vs.
 # batch2 analysis or bootstrapping/subsampling analyses, the per-sample output of
@@ -626,24 +694,55 @@ rule scan2_permtool_run:
 # groups should provide the SAME OUTPUT as reusing the old permutations because
 # the set of somatic mutation calls does not change and scan2 permtool also would
 # use the same sequence of random seeds.
-rule scan2_permtool_synthetic:
+rule scan2_permtool_combine:
     input:
         combine_script="scan2/SCAN2_specific_commit/scripts/combine_permutations.R",
-        rdas=lambda wildcards: 
-            [ "scan2/permtool/" + config['scan2_rescue_groups_reverse'][sample] + "/perms_by_sample/" + sample + "/{muttype}_{passtype}.rda"
-            for sample in config['synthetic_groups'][wildcards.synthetic_group] ]
+        rdas=lambda wildcards:
+            [ "scan2/permtool_by_sample/perms_by_sample_copy/perms_by_sample/" + sample + "/{muttype}_{passtype}.rda"
+                for sample in config['groups'][wildcards.group] ]
     output:
-        perms="scan2/permtool/{synthetic_group}/perms_{muttype}_{passtype}.rda",
-        seeds="scan2/permtool/{synthetic_group}/seedinfo_{muttype}_{passtype}.rda"
+        perms="scan2/permtool/{group}/perms_{muttype}_{passtype}.rda",
+        seeds="scan2/permtool/{group}/seedinfo_{muttype}_{passtype}.rda"
     log:
-        "scan2/permtool/{synthetic_group}/perms_{muttype}_{passtype}.log",
+        "scan2/permtool/{group}/perms_{muttype}_{passtype}.log",
     benchmark:
-        "scan2/permtool/{synthetic_group}/perms_{muttype}_{passtype}.benchmark.txt",
+        "scan2/permtool/{group}/perms_{muttype}_{passtype}.benchmark.txt",
     params:
         genome='hs37d5'
+    # For memory step-up jobs, threads>1 can be counterproductive. R::future does not
+    # alawys immediately detect when its fork()ed jobs are killed by the OOM killer,
+    # thus allowing the surviving fork()ed jobs to run to completion before throwing
+    # an error. I believe there is a way to enable a fast-failure mode in R::future,
+    # but don't have time to look into that now.
+    #
+    # For now, 1 thread will do. The longest combine script only takes ~2 hours and
+    # the vast majority are <15 minutes.
     threads: 1
     resources:
-        mem_mb=48000
+        # Memory usage of this combine script can be astronomical with too many cores:
+        # permutation files (10,000 copies of each mutation set) are already large and
+        # the r-future library we use for multithreading multiplies memory use by number
+        # of threads.
+        #
+        # Threading aside, the combine script's memory usage scales directly off of number of mutations.
+        # It'd take a little more work to get number of mutations here, so instead use
+        # number of samples, mutation type and pass type as a proxy for number of
+        # mutations. snvs are typically more frequent than indels, rescue typically
+        # increases number by 40% (snvs) - 100% (indels)
+        #
+        # I built a very crude model of memory usage from a large run of 575 non-diseased
+        # single cells:
+        #
+        # max memory usage (max_rss) / n_cores / n_samples
+        #    muttype passtype       50%      80%      90%      99%     100%
+        #     <char>   <char>     <num>    <num>    <num>    <num>    <num>
+        # 1:   indel     pass 104.62656 179.3239 311.0429 597.4522 599.2750
+        # 2:     snv     pass 269.90417 398.1473 485.2819 832.7726 840.6350
+        mem_mb=lambda wildcards, input, threads, attempt: 1000 + \
+            2**(attempt-1) * 
+            threads * len(input.rdas) *
+            1.5**(wildcards.passtype == 'rescue') * \
+            2**(wildcards.muttype == 'snv') * 150
     shell:
         """
         {input.combine_script} \

@@ -1,3 +1,28 @@
+WARNING!!!!! MAJOR HACK
+-----------------------
+None of the below is true anymore, but keeping the note around is good to remind me not to do something
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+like this in the future.
+
+The scan2_permtool part of this pipeline is essentially unusuable. This is because `scan2 permtool`'s
+rule in sc_pipeline has an `output:` entry for not just the final combined permutation set per group,
+but also for the permutation .rda file for every individual sample in the group. Because all of the
+individual permutation .rdas are listed, they are also deleted when the job fails or even when the
+job is restarted. Failure of scan2 permtool is very common because (a) individual permutations can
+fail and (b) the final combine step often fails because it is hard to predict the required memory
+(i.e., the jobs are killed by the scheduler for memory overuse).
+
+The reason these files are listed is that the
+"synthetic permtool" rule - which combines permutations in to construct arbitrary groups - needs them.
+
+The workaround is to run scan2 permtool manually in each of the primary groups, which correspond to
+what are currently called scan2 "rescue groups". Once permtool completes successfully, write protect
+all of the files just to be sure that if any change accidentally tries to rerun scan2_permtool that
+the files are not all deleted.
+
+-----------------------
+
+
 TODO
 3. update snakefile.scan2 (or something) to install r-mutenrich
     -> build r-mutenrich and upload to conda??
@@ -13,6 +38,24 @@ TODO
 7. At some point, tried to use --until and snakemake complained that snRNA_1465a.rds wasn't
    present.  Ran the following:
     cp -ran ../../glia/analysis/scrnaseq/snRNA_1465a.rds scrnaseq/
+8. Update to remove micromamba recommendation. It probably works, but there is no need to use it.
+9. Add notes on SigProfiler* tools:
+    * sigprofilerplotting and sigprofilermatrixgenerator are now in bioconda, so trying to
+      remove my private channel (jluquette) versions.
+    * sigprofilerextractor, which determines the active signatures in the data, must be installed
+      manually via pip.
+        - pip install SigProfilerExtractor
+      This pip install decided, without asking, that it would upgrade some packages. For
+      the most part these were benign or things we don't use (several nvidia_* packages); but
+      a few upgrades stood out:
+        - SigProfilerMatrixGenerator from ??? -> 1.2.26-py3
+        - scipy 1.11.4 -> 1.13.0-cp310
+10. Fix an annoying ABI breakage in the Matrix package.
+    * The R Matrix package broke ABI compatability, which creates strange looking errors about
+      missing matrix functions. Fixing this requires rebuilding any package that uses Matrix
+      from source.  So far, I have only rebuilt lme4
+        install.packages('lme4', type='source')
+            
 
 
 Step 0. Install prereqs
