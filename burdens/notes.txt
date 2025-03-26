@@ -1,0 +1,28 @@
+# STEPS FOR PRODUCING THE FINAL COLLECTED TABLES OF BURDENS
+#
+# 1. Create (channel X sample) matrices for SigProfilerExtractor
+#   -> mutsigs/matrices/all/matrix.{SBS96,ID83,ID83_corrected}.txt
+#   1a. Run SigProfilerMatrixGenerator (n=544 cells out of n=547. Does not include MDA FTD, e.g.)
+#   1b. Correct ID83 matrices for SCAN2 channel-specific sensitivity
+# 2. Run SigProfilerExtractor on each matrix
+#   -> mutsigs/sigprofilerextractor/all/{SBS96,ID83,ID83_corrected}/Most_Stab_Sigs/{signatures,exposures}.csv
+#   1a. Parallelized and code to extract the most stable signature (can be different from
+#       SigProfilerExtractor's selected solution). Selected signature is copied into Most_Stab_Sigs
+# 3. Create final long table of signature burdens (sample, signature types) [not a matrix]
+#   -> sigburden_long_table.csv
+#   3a. code_from_laptop/small_for_download/make_sigburden_longtable.sh
+#       . snakemake/scripts/annotate_burdens_with_exposures.R combines SNV and indel
+#         scaling factors with SBS and ID signature counts.
+# 4. Combine signature burdens with SNV and indel burdens
+#   -> combined_burdens_denovo_cosmic.no_metadata.csv
+#   4a. Remove metadata columns from aging_rates/mutation_burdens_long_table.csv.
+#       . This is just a `cut` to remove the 10 metadata columns (excluding sample).
+# 5. Fit control models to compute expected burdens
+#   5a. residualize_burden.NEW.R
+#       . This computes a standard linear model (lm, not lmer) on a subset of control
+#         PTA neurons. The subset is created by running a preliminary lm() and excluding
+#         neurons identified by Tukey's outlier procedure.
+#       . Expected values for all PTA cells (of the same type: neuron or oligo) are then
+#         computed from the linear model without regard to phenotype.
+
+
