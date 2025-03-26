@@ -1,7 +1,7 @@
 snakemake/snakefile.scan2_per_donor
 scan2_output/full_objects/*.rda
 scan2_output/depth_profiles/*.tab.gz
-fig*/
+fig?/
 suppfig*/
 supptables/
 aging_rates/
@@ -31,3 +31,9 @@ snakemake/snakefile.scan2_rescue_groups
 metadata/groups.csv
 metadata/group_metadata.csv
 metadata/group_comparisons.csv
+burdens/*.csv
+figures/*.{pdf,csv}
+manual_integrated_enrichment_tables/bed_regions
+manual_integrated_enrichment_tables/quantile
+mapd_indel_outliers/*.pdf
+o2tools/
